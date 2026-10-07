@@ -84,6 +84,9 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .settings{margin:0 22px 12px;padding:14px 16px;border:1px solid var(--line);border-radius:8px;background:var(--panel);display:grid;gap:10px;max-width:640px}
 .settings label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
 .settings input{background:var(--bg);border:1px solid var(--line);color:var(--text);padding:7px 10px;border-radius:6px;font:inherit}
+[hidden]{display:none !important}
+.conn{font-size:12px;color:var(--muted)}
+.conn.on{color:rgb(var(--up))}
 .status{margin:0 22px 12px;padding:8px 12px;border-radius:6px;background:rgba(224,168,75,.14);color:var(--accent);font-size:13px}
 .status.err{background:rgba(var(--dn),.14);color:rgb(var(--dn))}
 /* ---- Front Page ---- */
@@ -153,7 +156,7 @@ td.drill:hover{outline:1px solid var(--accent);outline-offset:-1px}
   <div class="hdr-r">
     <span class="stamp" id="stamp">Loading data…</span>
     <button class="btn" id="btnRefresh" title="Refresh this page's data">↻ Refresh</button>
-    <button class="btn" id="btnSettings" title="Connection settings" aria-label="Connection settings">⚙</button>
+    <button class="btn" id="btnSettings" title="Connection settings" aria-label="Connection settings">⚙ <span class="conn" id="connState">Connect</span></button>
   </div>
 </header>
 <div class="settings" id="settings" hidden>
@@ -726,6 +729,14 @@ $("btnRefresh").onclick = () => {
   startRefresh(TAB_WHAT[t], names[t]);
 };
 
+// header label: shows whether this browser holds a key
+function showConn(){
+  const on = !!LS.get("mmKey");
+  $("connState").textContent = on ? "● Connected" : "Connect";
+  $("connState").classList.toggle("on", on);
+}
+showConn();
+
 function openSettings(){
   $("settings").hidden = false;
   $("setUrl").value = LS.get("mmUrl") || (DATA && DATA.webApp) || "";
@@ -737,11 +748,16 @@ $("setSave").onclick = async () => {
   LS.set("mmUrl", url && url !== (DATA && DATA.webApp) ? url : "");
   LS.set("mmKey", $("setKey").value.trim());
   $("setMsg").textContent = "Testing…";
-  try { const r = await api({action: "ping"}); $("setMsg").textContent = r.ok ? "Connected. Refresh buttons are ready on this device." : (r.error || "Not connected"); }
-  catch (e) { $("setMsg").textContent = e.message; }
+  try {
+    const r = await api({action: "ping"});
+    $("setMsg").textContent = r.ok ? "Connected. Refresh buttons are ready on this device." : (r.error || "Not connected");
+    if (!r.ok) LS.set("mmKey", "");
+    if (r.ok) setTimeout(() => { $("settings").hidden = true; $("setMsg").textContent = ""; }, 1200);
+  } catch (e) { $("setMsg").textContent = e.message; }
+  showConn();
 };
 $("setAll").onclick = () => { $("settings").hidden = true; startRefresh("all", "Full update"); };
-$("setForget").onclick = () => { LS.set("mmKey", ""); LS.set("mmUrl", ""); $("setKey").value = ""; $("setMsg").textContent = "Key removed from this device."; };
+$("setForget").onclick = () => { LS.set("mmKey", ""); LS.set("mmUrl", ""); $("setKey").value = ""; $("setMsg").textContent = "Key removed from this device."; showConn(); };
 
 // resume watching if the page was reloaded mid-refresh
 try {
