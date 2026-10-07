@@ -50,6 +50,8 @@ td{padding:6px 10px;text-align:right;border-top:1px solid var(--line);white-spac
 th.l,td.l{text-align:left}
 tr.grp th{background:var(--panel);color:var(--text);cursor:default;text-align:left;border-left:1px solid var(--line);font-size:12px}
 tr.grp th:first-child{border-left:0}
+.plain td{border-left:1px solid rgba(255,255,255,.05)}
+.plain td:first-child{border-left:0}
 td.wrapcell{white-space:normal;min-width:220px;max-width:420px}
 tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .sym{font-weight:700}
@@ -139,6 +141,43 @@ function buildTable(host, cols, getRows, init){
   return draw;
 }
 
+// ---- Sheet colours -> dark-theme colours ----
+// The Sheet's palette is built for a white page. Each fill is classified by hue
+// (green / red / amber / blue) and strength: pale fills = normal readings,
+// darker or fully saturated fills = extreme readings. Neon green is kept as-is.
+function hsl(hex){
+  const n = parseInt(hex.slice(1), 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (!d) return {h: 0, s: 0, l};
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  return {h, s, l};
+}
+function sheetTone(hex){
+  if (!hex) return null;
+  const c = hsl(hex);
+  if (c.s < 0.15 || c.l > 0.97) return null;                       // grey / white: neutral
+  const strong = c.l <= 0.65;
+  if (c.h >= 75 && c.h <= 165) return {k: (c.s >= 0.9 && c.l <= 0.6) ? "neon" : "up", strong};
+  if (c.h < 20 || c.h >= 330) return {k: "dn", strong};
+  if (c.h < 70) return {k: "warn", strong};
+  if (c.h >= 180 && c.h < 260) return {k: "info", strong};
+  return null;
+}
+const TINT = {up: "43,182,115", dn: "229,83,75", warn: "224,168,75", info: "90,145,230"};
+function sheetStyle(bg, fg){
+  const t = sheetTone(bg);
+  if (t){
+    if (t.k === "neon") return `background:${bg};color:#06210f;font-weight:700`;
+    return t.strong ? `background:rgba(${TINT[t.k]},.62);color:#fff;font-weight:700`
+                    : `background:rgba(${TINT[t.k]},.2)`;
+  }
+  const f = sheetTone(fg);                                          // coloured text only
+  if (f && TINT[f.k]) return `color:rgb(${TINT[f.k]})` + (f.strong ? ";font-weight:700" : "");
+  return "";
+}
+
 // Plain copy of a Sheet tab: values (for sorting), display (as shown in the Sheet),
 // colours (as shown in the Sheet, conditional formatting included)
 function renderPlainTab(host, title, tab){
@@ -153,7 +192,7 @@ function renderPlainTab(host, title, tab){
   const cols = keep.map(i => ({
     key: String(i), label: String(tab.headers[i]).trim(), cls: numeric[i] ? "" : "l",
     tdcls: r => numeric[i] ? "" : (String(r.d[i]).length > 60 ? "l wrapcell" : "l"),
-    style: r => r.bg[i] ? `background:${r.bg[i]};color:${r.fg[i] || "#111"}` : r.fg[i] ? `color:${r.fg[i]}` : "",
+    style: r => sheetStyle(r.bg[i], r.fg[i]),
     render: r => esc(r.d[i]), sort: r => r.v[i]
   }));
 
@@ -172,7 +211,7 @@ function renderPlainTab(host, title, tab){
   const more = tab.total > tab.values.length ? ` · showing ${tab.values.length} of ${tab.total}` : "";
   host.insertAdjacentHTML("beforeend", `<section><h2>${esc(title)} <small>${tab.values.length} rows${more}</small></h2>
     <div class="toolbar"><input type="search" id="${id}q" placeholder="Search ${esc(title)}"></div>
-    <div class="wrap" id="${id}"></div></section>`);
+    <div class="wrap plain" id="${id}"></div></section>`);
   let q = "";
   const draw = buildTable($(id), cols, () => rows.filter(r => !q || r.d.join(" ").toLowerCase().includes(q)), {groupRow});
   $(id + "q").oninput = e => { q = e.target.value.trim().toLowerCase(); draw(); };
