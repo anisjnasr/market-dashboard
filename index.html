@@ -449,7 +449,7 @@ function hotRows(tab, n){
 
 function renderFront(d){
   const host = $("tab-front"), fp = d.frontPage;
-  if (!fp){ host.innerHTML = '<div class="empty">No Front Page brief in the latest export yet.<br>In the Sheet run <b>Front Page → Refresh now</b>, then <b>Update → Publish dashboard data now</b>.</div>'; return; }
+  if (!fp){ host.innerHTML = '<div class="empty">No Front Page brief in the latest export yet.<br>In the Sheet run <b>Market Dashboard → Front Page refresh</b>, then <b>Market Dashboard → Dashboard publish</b>.</div>'; return; }
   if (fp.error){ host.innerHTML = `<div class="fp-err"><b>The last brief could not be built.</b><br>${esc(fp.error)}</div>`; return; }
 
   const macro = (fp.macro || []).map(b => {
@@ -499,7 +499,7 @@ function renderFront(d){
 // ================= ES FORECAST =================
 function renderES(es){
   const host = $("tab-esvol");
-  if (!es){ host.innerHTML = '<div class="empty">No ES Forecast in the latest export yet.<br>In the Sheet run <b>ES Forecast → Update now</b>, then <b>Update → Publish dashboard data now</b>.</div>'; return; }
+  if (!es){ host.innerHTML = '<div class="empty">No ES Forecast in the latest export yet.<br>In the Sheet run <b>Market Dashboard → ES Forecast refresh</b>, then <b>Market Dashboard → Dashboard publish</b>.</div>'; return; }
   const L = es.levels, R = es.range, f0 = v => isNum(v) ? v.toLocaleString("en-US", {maximumFractionDigits: 0}) : esc(v);
   const f2 = v => isNum(v) ? v.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2}) : esc(v);
   const COL = {Typical: "#7aa6e8", Busy: "#4cc3bb", Outlier: "#b393e6"};
@@ -622,7 +622,7 @@ function watchFor(since, label){
     } catch (e) {}
     if (Date.now() - t0 > 25 * 60000){
       clearInterval(timer); sessionStorage.removeItem("mmPending");
-      status(label + ": no new data after 25 minutes. Check Update → Show schedule and last runs in the Sheet.", true);
+      status(label + ": no new data after 25 minutes. Check Market Dashboard → Schedule and last runs in the Sheet.", true);
     }
   }, 30000);
 }
@@ -681,7 +681,7 @@ fetch("data.json?v=" + Date.now(), {cache: "no-store"})
   })
   .catch(e => {
     $("stamp").textContent = "No data loaded";
-    $("tab-front").innerHTML = `<div class="empty">No dashboard data yet (${esc(e.message)}).<br>In the Sheet, run <b>Update → Publish dashboard data now</b>, wait a minute, then reload this page.</div>`;
+    $("tab-front").innerHTML = `<div class="empty">No dashboard data yet (${esc(e.message)}).<br>In the Sheet, run <b>Market Dashboard → Dashboard publish</b>, wait a minute, then reload this page.</div>`;
   });
 </script>
 </body>
