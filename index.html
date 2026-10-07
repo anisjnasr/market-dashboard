@@ -115,6 +115,25 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .fp-err{border:1px solid rgba(var(--dn),.5);background:rgba(var(--dn),.1);border-radius:8px;padding:16px;margin-bottom:20px}
 @media (max-width:980px){.fp-grid{grid-template-columns:1fr}}
 @media (max-width:600px){.fp-list li,.fp-list.corp li{grid-template-columns:22px 1fr}.fp-list li .fp-txt,.fp-fig{grid-column:1 / -1}.fp-list.corp li{grid-template-columns:1fr 1fr}}
+/* ---- MM drill-down ---- */
+td.drill{cursor:pointer}
+td.drill:hover{outline:1px solid var(--accent);outline-offset:-1px}
+.drill-ov{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:4vh 14px;overflow:auto}
+.drill{background:var(--bg);border:1px solid var(--line);border-radius:10px;width:min(1200px,100%);padding:16px 18px}
+.dr-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.dr-top h3{margin:0;color:var(--text);font-size:16px}
+.dr-lbl{display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-top:12px}
+.dr-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;margin:6px 0 14px;background:var(--line)}
+.dr-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.dr-card{border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:8px 10px;margin-bottom:8px}
+.dr-card h4{margin:0 0 7px;font-size:13px;display:flex;justify-content:space-between;gap:8px}
+.dr-card h4 span{color:var(--muted);font-weight:600}
+.dr-chips{display:flex;flex-wrap:wrap;gap:5px}
+.tk{display:inline-flex;gap:5px;align-items:baseline;padding:3px 7px;border-radius:5px;font-size:12px;font-weight:700;text-decoration:none;color:#fff}
+.tk.up{background:rgba(46,190,120,.38)} .tk.dn{background:rgba(235,87,78,.4)}
+.tk:hover{outline:1px solid #fff}
+.tk i{font-style:normal;font-weight:500;font-size:11px;opacity:.9}
+@media (max-width:820px){.dr-cols{grid-template-columns:1fr}}
 /* ---- ES Forecast ---- */
 .es-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:24px}
 .es-tiles .tile .v{font-size:28px}
@@ -199,7 +218,7 @@ function buildTable(host, cols, getRows, init){
     host.innerHTML = `<table><thead>${st.groupRow || ""}<tr>${cols.map(c =>
       `<th class="${c.cls || ""} ${c.gs ? "gs" : ""} ${st.key === c.key ? "sorted" : ""}" data-k="${esc(c.key)}">${esc(c.label)}${st.key === c.key ? (st.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead>
       <tbody>${rows.map(r => `<tr>${cols.map(c =>
-      `<td class="${(c.tdcls ? c.tdcls(r) : (c.cls || "")) + (c.gs ? " gs" : "")}" style="${c.heat ? c.heat(r) : c.style ? c.style(r) : ""}">${c.render ? c.render(r) : esc(r[c.key])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+      `<td ${c.attrs ? c.attrs(r) : ""} class="${(c.tdcls ? c.tdcls(r) : (c.cls || "")) + (c.gs ? " gs" : "")}" style="${c.heat ? c.heat(r) : c.style ? c.style(r) : ""}">${c.render ? c.render(r) : esc(r[c.key])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
     host.querySelectorAll("th[data-k]").forEach(th => th.onclick = () => {
       const k = th.dataset.k;
       if (st.key === k){ if (st.dir === -1) st.dir = 1; else st.key = null; }
@@ -261,14 +280,18 @@ function renderPlainTab(host, title, tab, opts){
   const col = tab.colors || null;
   let rows = tab.values.map((v, k) => ({ v, d: tab.display[k], bg: col ? col.bg[k] || [] : [], fg: col ? col.fg[k] || [] : [] }));
   if (opts.limit) rows = rows.slice(0, opts.limit);
+  const dateCol = tab.headers.findIndex(h => String(h).trim().toLowerCase() === "date");
   // Numbers sit in the centre of their column but stay right-aligned to each
   // other: each value goes in a box as wide as the longest value in that column.
   const cols = keep.map(i => {
     const custom = opts.colStyle ? opts.colStyle(String(tab.headers[i]).trim().toLowerCase(), i, rows) : null;
     const w = numeric[i] ? Math.max(1, ...rows.map(r => String(r.d[i]).length)) : 0;
+    const hdr = String(tab.headers[i]).trim();
+    const drill = opts.drill && DRILL_PAIR[hdr] && dateCol >= 0;
     return {
-      key: String(i), label: String(tab.headers[i]).trim(), cls: numeric[i] ? "c" : "l",
-      tdcls: r => numeric[i] ? "c" : (String(r.d[i]).length > 60 ? "l wrapcell" : "l"),
+      key: String(i), label: hdr, cls: numeric[i] ? "c" : "l",
+      attrs: drill ? r => `data-d="${esc(r.v[dateCol])}" data-m="${esc(hdr)}" title="Show the stocks"` : null,
+      tdcls: r => (numeric[i] ? "c" : (String(r.d[i]).length > 60 ? "l wrapcell" : "l")) + (drill ? " drill" : ""),
       style: custom && custom.style ? custom.style : r => sheetStyle(r.bg[i], r.fg[i]),
       render: custom && custom.render ? custom.render
         : numeric[i] ? r => `<span class="num" style="min-width:${w}ch">${esc(r.d[i])}</span>` : r => esc(r.d[i]),
@@ -299,6 +322,9 @@ function renderPlainTab(host, title, tab, opts){
   let q = "";
   const draw = buildTable($(id), cols, () => rows.filter(r => !q || r.d.join(" ").toLowerCase().includes(q)), {groupRow});
   if (!opts.noSearch) $(id + "q").oninput = e => { q = e.target.value.trim().toLowerCase(); draw(); };
+  if (opts.drill) $(id).addEventListener("click", e => {
+    const td = e.target.closest("td.drill"); if (td) openDrill(td.dataset.d, td.dataset.m);
+  });
 }
 
 // ================= MARKET DASHBOARD =================
@@ -496,6 +522,61 @@ function renderFront(d){
     </div>`;
 }
 
+// ================= MM DRILL-DOWN =================
+// Each clickable column opens its pair: up side left, down side right.
+const DRILL_PAIR = {
+  "Up 4%": ["Up 4%", "Down 4%"], "Down 4%": ["Up 4%", "Down 4%"], "Participation": ["Up 4%", "Down 4%"],
+  "W20% Up": ["W20% Up", "W20% Down"], "W20% Down": ["W20% Up", "W20% Down"],
+  "Q25% Up": ["Q25% Up", "Q25% Down"], "Q25% Down": ["Q25% Up", "Q25% Down"],
+  "NH21": ["NH21", "NL52W"], "NL52W": ["NH21", "NL52W"]
+};
+const DRILL_MOVE = {"Up 4%": "1-day", "Down 4%": "1-day", "W20% Up": "5-day", "W20% Down": "5-day",
+  "Q25% Up": "63-day", "Q25% Down": "63-day", "NH21": "1-day", "NL52W": "1-day"};
+const DRILL_NAME = {"NH21": "21-day new highs", "NL52W": "52-week new lows"};
+const drillCache = {};
+
+function drillSide(d, name, up){
+  const items = (d.metrics[name] || []).map(([t, i, c]) => ({t, ind: d.industries[i] || "Ungrouped", c}));
+  const groups = {};
+  items.forEach(x => (groups[x.ind] = groups[x.ind] || []).push(x));
+  const cards = Object.keys(groups)
+    .sort((a, b) => groups[b].length - groups[a].length || a.localeCompare(b))
+    .map(g => {
+      const list = groups[g].sort((a, b) => up ? b.c - a.c : a.c - b.c);
+      return `<div class="dr-card"><h4>${esc(g)} <span>${list.length}</span></h4><div class="dr-chips">${
+        list.map(x => `<a class="tk ${up ? "up" : "dn"}" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(x.t)}" target="_blank" rel="noopener">${esc(x.t)}<i>${sign(x.c)}${x.c.toFixed(1)}%</i></a>`).join("")
+      }</div></div>`;
+    }).join("");
+  return {n: items.length, html: cards || '<div class="note">No stocks.</div>'};
+}
+
+function closeDrill(){ const o = $("drillOv"); if (o) o.remove(); }
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeDrill(); });
+
+async function openDrill(date, metric){
+  closeDrill();
+  const [a, b] = DRILL_PAIR[metric];
+  const day = new Date(date + "T12:00:00").toLocaleDateString("en-GB", {weekday: "short", day: "numeric", month: "short", year: "numeric"});
+  document.body.insertAdjacentHTML("beforeend", `<div class="drill-ov" id="drillOv"><div class="drill" role="dialog" aria-modal="true">
+    <div class="dr-top"><h3>${esc(DRILL_NAME[a] || a)} vs ${esc(DRILL_NAME[b] || b)} · ${esc(day)}</h3>
+    <button class="btn" id="drillX" aria-label="Close">✕</button></div><div id="drillBody" class="note">Loading…</div></div></div>`);
+  $("drillX").onclick = closeDrill;
+  $("drillOv").onclick = e => { if (e.target.id === "drillOv") closeDrill(); };
+  try {
+    const d = drillCache[date] || (drillCache[date] = await fetch(`mm/${date}.json?v=${Date.now()}`, {cache: "no-store"})
+      .then(r => { if (!r.ok) throw new Error("no drill-down saved for this date"); return r.json(); }));
+    const L = drillSide(d, a, true), R = drillSide(d, b, false), tot = L.n + R.n || 1;
+    $("drillBody").className = "";
+    $("drillBody").innerHTML = `
+      <div class="dr-lbl"><span class="up">${esc(a)} ${Math.round(L.n / tot * 100)}% (${L.n})</span><span class="dn">${esc(b)} ${Math.round(R.n / tot * 100)}% (${R.n})</span></div>
+      <div class="dr-bar"><div style="width:${L.n / tot * 100}%;background:rgb(var(--up))"></div><div style="flex:1;background:rgb(var(--dn))"></div></div>
+      <div class="note" style="margin:0 0 10px">Grouped by industry, largest groups first. Each chip shows the ${DRILL_MOVE[a]} move; click a ticker to open its chart.</div>
+      <div class="dr-cols"><div>${L.html}</div><div>${R.html}</div></div>`;
+  } catch (e) {
+    $("drillBody").textContent = "Could not load the stocks: " + e.message + ".";
+  }
+}
+
 // ================= ES FORECAST =================
 function renderES(es){
   const host = $("tab-esvol");
@@ -571,7 +652,8 @@ function socialCol(h, i, rows){
 // ================= OTHER TABS =================
 function renderPlainTabs(d){
   const t = d.tabs || {};
-  $("tab-mm").innerHTML = ""; renderPlainTab($("tab-mm"), "MM", t["MM"], {hideTitle: true, noSearch: true});
+  $("tab-mm").innerHTML = ""; $("tab-mm").insertAdjacentHTML("beforeend", '<div class="note" style="margin:0 0 8px">Click any Up/Down 4%, Participation, W20%, Q25%, NH21 or NL52W number to see the stocks behind it.</div>');
+  renderPlainTab($("tab-mm"), "MM", t["MM"], {hideTitle: true, noSearch: true, drill: true});
   $("tab-earnings").innerHTML = "";
   renderPlainTab($("tab-earnings"), "Earnings shortlist", t["Earnings Shortlist"]);
   renderPlainTab($("tab-earnings"), "Earnings week", t["Earnings Week"]);
