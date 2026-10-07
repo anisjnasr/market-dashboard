@@ -48,8 +48,11 @@ th:hover{color:var(--text)}
 th.sorted{color:var(--accent)}
 td{padding:6px 10px;text-align:right;border-top:1px solid var(--line);white-space:nowrap}
 th.l,td.l{text-align:left}
-tr.grp th{background:var(--panel);color:var(--text);cursor:default;text-align:left;border-left:1px solid var(--line);font-size:12px}
-tr.grp th:first-child{border-left:0}
+tr.grp th{background:var(--panel);color:var(--text);cursor:default;text-align:center;font-size:15px;font-weight:700;letter-spacing:.02em;padding:9px 10px}
+tr.grp th.g0{text-align:left;font-size:12px;font-weight:600;color:var(--muted)}
+tr.grp th.g1{background:rgba(90,145,230,.32)}
+tr.grp th.g2{background:rgba(176,120,232,.32)}
+.plain th.gs,.plain td.gs{border-left:3px solid rgba(232,237,245,.55)}
 .plain td{border-left:1px solid rgba(255,255,255,.05)}
 .plain td:first-child{border-left:0}
 td.wrapcell{white-space:normal;min-width:220px;max-width:420px}
@@ -127,9 +130,9 @@ function buildTable(host, cols, getRows, init){
         return (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y))) * st.dir; });
     }
     host.innerHTML = `<table><thead>${st.groupRow || ""}<tr>${cols.map(c =>
-      `<th class="${c.cls || ""} ${st.key === c.key ? "sorted" : ""}" data-k="${esc(c.key)}">${esc(c.label)}${st.key === c.key ? (st.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead>
+      `<th class="${c.cls || ""} ${c.gs ? "gs" : ""} ${st.key === c.key ? "sorted" : ""}" data-k="${esc(c.key)}">${esc(c.label)}${st.key === c.key ? (st.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead>
       <tbody>${rows.map(r => `<tr>${cols.map(c =>
-      `<td class="${c.tdcls ? c.tdcls(r) : (c.cls || "")}" style="${c.heat ? c.heat(r) : c.style ? c.style(r) : ""}">${c.render ? c.render(r) : esc(r[c.key])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+      `<td class="${(c.tdcls ? c.tdcls(r) : (c.cls || "")) + (c.gs ? " gs" : "")}" style="${c.heat ? c.heat(r) : c.style ? c.style(r) : ""}">${c.render ? c.render(r) : esc(r[c.key])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
     host.querySelectorAll("th[data-k]").forEach(th => th.onclick = () => {
       const k = th.dataset.k;
       if (st.key === k){ if (st.dir === -1) st.dir = 1; else st.key = null; }
@@ -165,13 +168,13 @@ function sheetTone(hex){
   if (c.h >= 180 && c.h < 260) return {k: "info", strong};
   return null;
 }
-const TINT = {up: "43,182,115", dn: "229,83,75", warn: "224,168,75", info: "90,145,230"};
+const TINT = {up: "46,190,120", dn: "235,87,78", warn: "224,168,75", info: "90,145,230"};
 function sheetStyle(bg, fg){
   const t = sheetTone(bg);
   if (t){
     if (t.k === "neon") return `background:${bg};color:#06210f;font-weight:700`;
-    return t.strong ? `background:rgba(${TINT[t.k]},.62);color:#fff;font-weight:700`
-                    : `background:rgba(${TINT[t.k]},.2)`;
+    return t.strong ? `background:rgba(${TINT[t.k]},.85);color:#fff;font-weight:700`
+                    : `background:rgba(${TINT[t.k]},.38)`;
   }
   const f = sheetTone(fg);                                          // coloured text only
   if (f && TINT[f.k]) return `color:rgb(${TINT[f.k]})` + (f.strong ? ";font-weight:700" : "");
@@ -180,7 +183,8 @@ function sheetStyle(bg, fg){
 
 // Plain copy of a Sheet tab: values (for sorting), display (as shown in the Sheet),
 // colours (as shown in the Sheet, conditional formatting included)
-function renderPlainTab(host, title, tab){
+function renderPlainTab(host, title, tab, opts){
+  opts = opts || {};
   if (!tab){ host.insertAdjacentHTML("beforeend", `<section><h2>${esc(title)}</h2><div class="empty">No data for this tab yet.</div></section>`); return; }
   const id = "t" + Math.random().toString(36).slice(2, 8);
   const keep = tab.headers.map((h, i) => String(h).trim() || tab.display.some(r => String(r[i]).trim()) ? i : -1).filter(i => i >= 0);
@@ -196,20 +200,23 @@ function renderPlainTab(host, title, tab){
     render: r => esc(r.d[i]), sort: r => r.v[i]
   }));
 
-  // group-label row: each label spans until the next label
+  // group-label row: each label spans until the next label. The first group
+  // (the "Updated" stamp) stays plain; the sections after it alternate colours
+  // and get a divider line down the table at their first column.
   let groupRow = "";
   if (tab.groups && tab.groups.some(g => String(g).trim())){
     const cells = [];
-    keep.forEach(i => {
+    keep.forEach((i, n) => {
       const g = String(tab.groups[i] || "").trim();
-      if (g || !cells.length) cells.push({label: g, span: 1});
+      if (g || !cells.length){ cells.push({label: g, span: 1}); if (n > 0) cols[n].gs = true; }
       else cells[cells.length - 1].span++;
     });
-    groupRow = `<tr class="grp">${cells.map(c => `<th colspan="${c.span}">${esc(c.label)}</th>`).join("")}</tr>`;
+    groupRow = `<tr class="grp">${cells.map((c, j) =>
+      `<th colspan="${c.span}" class="${j === 0 ? "g0" : (j % 2 ? "g1" : "g2")}${j > 0 ? " gs" : ""}">${esc(c.label)}</th>`).join("")}</tr>`;
   }
 
   const more = tab.total > tab.values.length ? ` · showing ${tab.values.length} of ${tab.total}` : "";
-  host.insertAdjacentHTML("beforeend", `<section><h2>${esc(title)} <small>${tab.values.length} rows${more}</small></h2>
+  host.insertAdjacentHTML("beforeend", `<section>${opts.hideTitle ? "" : `<h2>${esc(title)} <small>${tab.values.length} rows${more}</small></h2>`}
     <div class="toolbar"><input type="search" id="${id}q" placeholder="Search ${esc(title)}"></div>
     <div class="wrap plain" id="${id}"></div></section>`);
   let q = "";
@@ -328,7 +335,7 @@ function renderMarket(m){
 // ================= OTHER TABS =================
 function renderPlainTabs(d){
   const t = d.tabs || {};
-  $("tab-mm").innerHTML = ""; renderPlainTab($("tab-mm"), "MM", t["MM"]);
+  $("tab-mm").innerHTML = ""; renderPlainTab($("tab-mm"), "MM", t["MM"], {hideTitle: true});
   $("tab-earnings").innerHTML = "";
   renderPlainTab($("tab-earnings"), "Earnings shortlist", t["Earnings Shortlist"]);
   renderPlainTab($("tab-earnings"), "Earnings week", t["Earnings Week"]);
