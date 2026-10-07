@@ -48,6 +48,8 @@ th:hover{color:var(--text)}
 th.sorted{color:var(--accent)}
 td{padding:6px 10px;text-align:right;border-top:1px solid var(--line);white-space:nowrap}
 th.l,td.l{text-align:left}
+th.c,td.c{text-align:center}
+.num{display:inline-block;text-align:right}
 tr.grp th{background:var(--panel);color:var(--text);cursor:default;text-align:center;font-size:15px;font-weight:700;letter-spacing:.02em;padding:9px 10px}
 tr.grp th.g0{text-align:left;font-size:12px;font-weight:600;color:var(--muted)}
 tr.grp th.g1{background:rgba(90,145,230,.32)}
@@ -192,13 +194,22 @@ function renderPlainTab(host, title, tab, opts){
   keep.forEach(i => { const vals = tab.values.map(r => r[i]).filter(v => v !== "" && v != null);
     numeric[i] = vals.length && vals.filter(isNum).length / vals.length > 0.8; });
   const col = tab.colors || null;
-  const rows = tab.values.map((v, k) => ({ v, d: tab.display[k], bg: col ? col.bg[k] || [] : [], fg: col ? col.fg[k] || [] : [] }));
-  const cols = keep.map(i => ({
-    key: String(i), label: String(tab.headers[i]).trim(), cls: numeric[i] ? "" : "l",
-    tdcls: r => numeric[i] ? "" : (String(r.d[i]).length > 60 ? "l wrapcell" : "l"),
-    style: r => sheetStyle(r.bg[i], r.fg[i]),
-    render: r => esc(r.d[i]), sort: r => r.v[i]
-  }));
+  let rows = tab.values.map((v, k) => ({ v, d: tab.display[k], bg: col ? col.bg[k] || [] : [], fg: col ? col.fg[k] || [] : [] }));
+  if (opts.limit) rows = rows.slice(0, opts.limit);
+  // Numbers sit in the centre of their column but stay right-aligned to each
+  // other: each value goes in a box as wide as the longest value in that column.
+  const cols = keep.map(i => {
+    const custom = opts.colStyle ? opts.colStyle(String(tab.headers[i]).trim().toLowerCase(), i, rows) : null;
+    const w = numeric[i] ? Math.max(1, ...rows.map(r => String(r.d[i]).length)) : 0;
+    return {
+      key: String(i), label: String(tab.headers[i]).trim(), cls: numeric[i] ? "c" : "l",
+      tdcls: r => numeric[i] ? "c" : (String(r.d[i]).length > 60 ? "l wrapcell" : "l"),
+      style: custom && custom.style ? custom.style : r => sheetStyle(r.bg[i], r.fg[i]),
+      render: custom && custom.render ? custom.render
+        : numeric[i] ? r => `<span class="num" style="min-width:${w}ch">${esc(r.d[i])}</span>` : r => esc(r.d[i]),
+      sort: r => r.v[i]
+    };
+  });
 
   // group-label row: each label spans until the next label. The first group
   // (the "Updated" stamp) stays plain; the sections after it alternate colours
@@ -216,7 +227,8 @@ function renderPlainTab(host, title, tab, opts){
   }
 
   const more = tab.total > tab.values.length ? ` · showing ${tab.values.length} of ${tab.total}` : "";
-  host.insertAdjacentHTML("beforeend", `<section>${opts.hideTitle ? "" : `<h2>${esc(title)} <small>${tab.values.length} rows${more}</small></h2>`}
+  const count = opts.limit ? `top ${rows.length} of ${tab.total}` : `${tab.values.length} rows${more}`;
+  host.insertAdjacentHTML("beforeend", `<section>${opts.hideTitle ? "" : `<h2>${esc(title)} <small>${count}</small></h2>`}
     <div class="toolbar"><input type="search" id="${id}q" placeholder="Search ${esc(title)}"></div>
     <div class="wrap plain" id="${id}"></div></section>`);
   let q = "";
@@ -332,6 +344,29 @@ function renderMarket(m){
   }</ul></div>`).join("");
 }
 
+// ================= X / REDDIT =================
+// Bullish % = green, stronger the higher it is. Bearish % = red, likewise.
+// Any other % / change column = green when positive, red when negative,
+// scaled to the biggest move in the list. Trend = coloured arrow.
+function socialCol(h, i, rows){
+  const vals = rows.map(r => r.v[i]).filter(isNum);
+  const max = vals.length ? Math.max(...vals.map(Math.abs)) : 0;
+  const unit = max > 1.5 ? 100 : 1;                       // 0-100 or 0-1 values
+  const level = (rgb, x) => { x = Math.max(0, Math.min(1, x));
+    return `background:rgba(${rgb},${(0.12 + 0.73 * x).toFixed(2)})` + (x >= 0.6 ? ";color:#fff;font-weight:700" : ""); };
+  if (/bull/.test(h)) return {style: r => isNum(r.v[i]) ? level(TINT.up, r.v[i] / unit) : ""};
+  if (/bear/.test(h)) return {style: r => isNum(r.v[i]) ? level(TINT.dn, r.v[i] / unit) : ""};
+  if (/trend/.test(h)) return {
+    style: () => "font-weight:700",
+    render: r => { const t = String(r.d[i]).trim().toLowerCase();
+      return t === "rising" ? '<span class="up">▲ Rising</span>' : t === "falling" ? '<span class="dn">▼ Falling</span>'
+        : `<span class="neu">${esc(r.d[i]) || "–"}</span>`; }
+  };
+  if (/%|chg|change/.test(h) && max) return {style: r => isNum(r.v[i]) && r.v[i] !== 0
+    ? level(r.v[i] > 0 ? TINT.up : TINT.dn, Math.abs(r.v[i]) / max) : ""};
+  return null;
+}
+
 // ================= OTHER TABS =================
 function renderPlainTabs(d){
   const t = d.tabs || {};
@@ -340,8 +375,8 @@ function renderPlainTabs(d){
   renderPlainTab($("tab-earnings"), "Earnings shortlist", t["Earnings Shortlist"]);
   renderPlainTab($("tab-earnings"), "Earnings week", t["Earnings Week"]);
   $("tab-social").innerHTML = "";
-  renderPlainTab($("tab-social"), "X top 50", t["X Top 50"]);
-  renderPlainTab($("tab-social"), "Reddit top 50", t["Reddit Top 50"]);
+  renderPlainTab($("tab-social"), "Hot on X", t["X Top 50"], {limit: 10, colStyle: socialCol});
+  renderPlainTab($("tab-social"), "Hot on Reddit", t["Reddit Top 50"], {limit: 10, colStyle: socialCol});
 }
 
 // ================= TABS + LOAD =================
