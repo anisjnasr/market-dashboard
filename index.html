@@ -137,6 +137,10 @@ td.drill:hover{outline:1px solid var(--accent);outline-offset:-1px}
 .tk:hover{outline:1px solid #fff}
 .tk i{font-style:normal;font-weight:500;font-size:11px;opacity:.9}
 @media (max-width:820px){.dr-cols{grid-template-columns:1fr}}
+/* ---- freshness line ---- */
+.fresh{font-size:12px;color:var(--muted);margin:0 0 14px}
+.fresh b{color:var(--text);font-weight:600}
+.fresh.warn,.fresh.warn b{color:var(--accent)}
 /* ---- Earnings ---- */
 .ern td,.ern th{white-space:nowrap}
 .ern .co{color:var(--muted);font-size:12px;margin-left:6px;max-width:220px;display:inline-block;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
@@ -447,7 +451,7 @@ function renderMarket(m){
 function renderSectors(m){
   const host = $("tab-sectors");
   if (!m){ host.innerHTML = '<div class="empty">No sector data in the latest export.</div>'; return; }
-  host.innerHTML = "";
+  host.innerHTML = fresh(`Prices as of <b>${esc(asOfText(m.status))}</b> · refreshed ${esc(updText(m.updatedText))}`);
   perfSection(host, "sc", "Sectors", byTitle(m, /SECTOR/));
   perfSection(host, "in", "Industries", byTitle(m, /INDUSTR/), FLAGS_NOTE);
 
@@ -540,6 +544,19 @@ function renderFront(d){
     </div>`;
 }
 
+// ================= FRESHNESS =================
+// The last completed session, taken from the Market tab's "Data as of" badge.
+// Used as the reference: a page whose data is older than this is a session behind.
+function refSession(d){
+  const m = String((d.market && d.market.status) || "").match(/(\d{1,2})-([A-Za-z]{3})-(\d{4})/);
+  if (!m) return "";
+  const mon = {jan:"01",feb:"02",mar:"03",apr:"04",may:"05",jun:"06",jul:"07",aug:"08",sep:"09",oct:"10",nov:"11",dec:"12"}[m[2].toLowerCase()];
+  return mon ? `${m[3]}-${mon}-${m[1].padStart(2, "0")}` : "";
+}
+const fresh = (html, warn) => `<div class="fresh${warn ? " warn" : ""}">${html}</div>`;
+const updText = s => String(s || "").replace(/^Last updated:\s*/i, "");
+const asOfText = s => String(s || "").replace(/^Data as of:\s*/i, "");
+
 // ================= MM DRILL-DOWN =================
 // Each clickable column opens its pair: up side left, down side right.
 const DRILL_PAIR = {
@@ -630,7 +647,7 @@ function renderEarnings(d){
     salesE: r["Sales Est"], salesA: r["Sales Act"], salesP: r["Sales Surp %"],
     epsE: r["EPS Est"], epsA: r["EPS Act"], epsP: r["EPS Surp %"]
   })).filter(r => r.ticker);
-  EARN = {cal, short, picked: new Set(short.map(r => r.ticker))};
+  EARN = {cal, short, picked: new Set(short.map(r => r.ticker)), updated: d.earningsUpdated || ""};
   drawEarnings();
 }
 
@@ -667,7 +684,7 @@ function drawEarnings(){
     return `<details class="eday${day === today ? " today" : ""}" ${day >= today ? "open" : ""}><summary>${esc(dayLabel(day))} · ${n}${day === today ? " · today" : ""}</summary>${blocks}</details>`;
   }).join("");
 
-  host.innerHTML = `<section><h2>Your shortlist <small>${short.length} names · figures once reported, estimates until then</small></h2>${shortHtml}</section>
+  host.innerHTML = fresh(EARN.updated ? `Earnings data updated <b>${esc(EARN.updated)}</b> · source: Finnhub` : "Earnings data: update time not available") + `<section><h2>Your shortlist <small>${short.length} names · figures once reported, estimates until then</small></h2>${shortHtml}</section>
     <section><h2>Earnings calendar <small>this week · $1bn+ market cap · largest first</small></h2>${calHtml || '<div class="empty">No calendar data yet.</div>'}</section>`;
 }
 
@@ -730,7 +747,8 @@ function renderES(es){
     rows.map((r, k) => `<tr>${r.map((c, i) => `<td class="${i ? (i === r.length - 1 ? "neu" : "") : "l"}" style="${(boldRows || []).includes(k) ? "font-weight:700" : ""}">${isNum(c) ? f2(c).replace(/\.00$/, "") : esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 
   host.innerHTML = `
-    <section><h2>ES forecast <small>As of ${esc(es.asOfText)} close · ES ${f2(es.close)} · ${esc(es.regime)}</small></h2>
+    ${fresh(`Based on the <b>${esc(es.asOfText)}</b> close${es.updatedText ? ` · calculated ${esc(es.updatedText)}` : ""}`)}
+    <section><h2>ES forecast <small>ES ${f2(es.close)} · ${esc(es.regime)}</small></h2>
       <div class="es-tiles">
         <div class="tile"><div class="k">Potential range</div><div class="v">${R.typical}<span class="es-word">pts · ${esc(R.word)}</span></div><div class="s">${R.quiet} quiet — ${R.busy} busy</div></div>
         <div class="tile"><div class="k">Day type</div><div class="v" style="font-size:22px">${esc(es.dayType)}<span class="es-word">${esc(es.dayWord)}</span></div><div class="s">${Math.round((1 - es.trendRate) * 100)}% range · ${Math.round(es.trendRate * 100)}% trend</div></div>
@@ -772,7 +790,16 @@ function socialCol(h, i, rows){
 // ================= OTHER TABS =================
 function renderPlainTabs(d){
   const t = d.tabs || {};
-  $("tab-mm").innerHTML = ""; $("tab-mm").insertAdjacentHTML("beforeend", '<div class="note" style="margin:0 0 8px">Click any Up/Down 4%, Participation, W20%, Q25%, NH21 or NL52W number to see the stocks behind it.</div>');
+  $("tab-mm").innerHTML = ""; const mmTab = t["MM"];
+  if (mmTab){
+    const dc = mmTab.headers.findIndex(h => String(h).trim().toLowerCase() === "date");
+    const latest = dc >= 0 ? mmTab.values.map(v => String(v[dc] || "")).filter(Boolean).sort().pop() : "";
+    const ran = String((mmTab.groups || [])[0] || "").replace(/^Updated\s*/i, "");
+    const ref = refSession(d), behind = latest && ref && latest < ref;
+    $("tab-mm").insertAdjacentHTML("beforeend", fresh(`Latest session <b>${esc(shortDay(latest))}</b>${ran ? ` · job ran ${esc(ran)}` : ""}` +
+      (behind ? ` · one session behind the market: Massive publishes after midnight New York (about 08:00 UAE in summer, 09:00 in winter)` : ""), behind));
+  }
+  $("tab-mm").insertAdjacentHTML("beforeend", '<div class="note" style="margin:0 0 8px">Click any Up/Down 4%, Participation, W20%, Q25%, NH21 or NL52W number to see the stocks behind it.</div>');
   renderPlainTab($("tab-mm"), "MM", t["MM"], {hideTitle: true, noSearch: true, drill: true});
 
 
