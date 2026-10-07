@@ -267,11 +267,11 @@ function renderPlainTab(host, title, tab, opts){
   const more = tab.total > tab.values.length ? ` · showing ${tab.values.length} of ${tab.total}` : "";
   const count = opts.limit ? `top ${rows.length} of ${tab.total}` : `${tab.values.length} rows${more}`;
   host.insertAdjacentHTML("beforeend", `<section>${opts.hideTitle ? "" : `<h2>${esc(title)} <small>${count}</small></h2>`}
-    <div class="toolbar"><input type="search" id="${id}q" placeholder="Search ${esc(title)}"></div>
+    ${opts.noSearch ? "" : `<div class="toolbar"><input type="search" id="${id}q" placeholder="Search ${esc(title)}"></div>`}
     <div class="wrap plain" id="${id}"></div></section>`);
   let q = "";
   const draw = buildTable($(id), cols, () => rows.filter(r => !q || r.d.join(" ").toLowerCase().includes(q)), {groupRow});
-  $(id + "q").oninput = e => { q = e.target.value.trim().toLowerCase(); draw(); };
+  if (!opts.noSearch) $(id + "q").oninput = e => { q = e.target.value.trim().toLowerCase(); draw(); };
 }
 
 // ================= MARKET DASHBOARD =================
@@ -544,7 +544,7 @@ function socialCol(h, i, rows){
 // ================= OTHER TABS =================
 function renderPlainTabs(d){
   const t = d.tabs || {};
-  $("tab-mm").innerHTML = ""; renderPlainTab($("tab-mm"), "MM", t["MM"], {hideTitle: true});
+  $("tab-mm").innerHTML = ""; renderPlainTab($("tab-mm"), "MM", t["MM"], {hideTitle: true, noSearch: true});
   $("tab-earnings").innerHTML = "";
   renderPlainTab($("tab-earnings"), "Earnings shortlist", t["Earnings Shortlist"]);
   renderPlainTab($("tab-earnings"), "Earnings week", t["Earnings Week"]);
