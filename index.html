@@ -8,6 +8,7 @@
 :root{
   --bg:#111214; --panel:#1a1b1e; --panel2:#202125; --line:#2a2c30;
   --text:#e6e6e6; --muted:#8b8d93; --accent:#e0a84b;
+  --tick:#8ab4ff;   /* every ticker on the site uses this colour, bold */
   --up:43,182,115; --dn:229,83,75; --neu:139,141,147;
 }
 *{box-sizing:border-box}
@@ -60,6 +61,7 @@ tr.grp th.g2{background:rgba(176,120,232,.32)}
 td.wrapcell{white-space:normal;min-width:220px;max-width:420px}
 tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .sym{font-weight:700}
+.tkr{color:var(--tick);font-weight:700}
 .nm{color:var(--muted);font-size:12px;margin-left:6px}
 .flag{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:6px;vertical-align:middle}
 .flag.stale{background:var(--accent)} .flag.missing{background:rgb(var(--dn))}
@@ -104,7 +106,7 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .fp-src{font:12px system-ui,sans-serif;color:var(--muted);margin-left:6px;text-decoration:none;white-space:nowrap}
 .fp-src:hover{color:var(--accent);text-decoration:underline}
 .fp-ticks{display:flex;flex-direction:column;gap:3px;padding-top:2px}
-.fp-tick{font-weight:700;font-size:13px;color:#9cc3ff}
+.fp-tick{font-weight:700;font-size:13px;color:var(--tick)}
 .fp-fig{grid-column:3;display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:4px}
 .fp-fig b{color:var(--text);font-weight:600}
 .fp-side section{margin-bottom:24px}
@@ -132,10 +134,10 @@ td.drill:hover{outline:1px solid var(--accent);outline-offset:-1px}
 .dr-card h4{margin:0 0 7px;font-size:13px;display:flex;justify-content:space-between;gap:8px}
 .dr-card h4 span{color:var(--muted);font-weight:600}
 .dr-chips{display:flex;flex-wrap:wrap;gap:5px}
-.tk{display:inline-flex;gap:5px;align-items:baseline;padding:3px 7px;border-radius:5px;font-size:12px;font-weight:700;text-decoration:none;color:#fff}
-.tk.up{background:rgba(46,190,120,.38)} .tk.dn{background:rgba(235,87,78,.4)}
-.tk:hover{outline:1px solid #fff}
-.tk i{font-style:normal;font-weight:500;font-size:11px;opacity:.9}
+.tk{display:inline-flex;gap:5px;align-items:baseline;padding:3px 7px;border-radius:5px;font-size:12px;font-weight:700;text-decoration:none;color:var(--tick);background:var(--panel2);border:1px solid var(--line)}
+.tk.up i{color:rgb(var(--up))} .tk.dn i{color:rgb(var(--dn))}
+.tk:hover{border-color:var(--tick)}
+.tk i{font-style:normal;font-weight:600;font-size:11px}
 @media (max-width:820px){.dr-cols{grid-template-columns:1fr}}
 /* ---- freshness line ---- */
 .fresh{font-size:12px;color:var(--muted);margin:0 0 14px}
@@ -371,7 +373,7 @@ function perfSection(host, uid, title, tables, note){
     <div class="wrap" id="${uid}P"></div>${note ? `<div class="note">${note}</div>` : ""}</section>`);
   let tIdx = 0, group = "All", q = "";
   const nameCol = {key:"name", label:"Name", cls:"l", sort: r => r.name,
-    render: r => `<span class="sym">${esc(r.name)}</span><span class="nm">${esc(r.sym)}</span>${r.status !== "ok" ? `<span class="flag ${r.status}" title="${r.status} data"></span>` : ""}`};
+    render: r => `<span class="sym">${esc(r.name)}</span> <span class="tkr" style="font-size:12px;margin-left:4px">${esc(r.sym)}</span>${r.status !== "ok" ? `<span class="flag ${r.status}" title="${r.status} data"></span>` : ""}`};
   const cols = [nameCol, {key:"last", label:"Last", render: fmtLast}]
     .concat(PERIODS.map(([k, lbl]) => ({key:k, label:lbl,
       render: r => r.yield ? bps(r[k]) : pct(r[k]), heat: r => heat(r[k], scaleFor(r, k))})))
@@ -458,7 +460,7 @@ function renderSectors(m){
   // ---- industry rotation ----
   host.insertAdjacentHTML("beforeend", `<section><h2>Industry rotation</h2><div class="grid2">${m.rotation.map(v => `<div><h3>${esc(v.label)}</h3><ul class="rot">${
     v.items.map(it => it.sym
-      ? `<li><span class="nm2"><span class="sym">${esc(it.sym)}</span><span class="nm">${esc(it.name)}</span></span>
+      ? `<li><span class="nm2"><span class="tkr">${esc(it.sym)}</span><span class="nm">${esc(it.name)}</span></span>
          <span class="rk" title="Rank before → now">${esc(it.rank.replace("->", "→"))}</span>
          <span class="pc ${toneCls(it.tone)}" style="${heat(it.tone === "bad" ? -Math.abs(it.pct || 0) : Math.abs(it.pct || 0), v.pctLabel === "1M" ? .09 : .30)}">${pct(it.pct)}</span></li>`
       : `<li><span class="placeholder ${toneCls(it.tone)}">${esc(it.name)}</span></li>`).join("")
@@ -517,14 +519,12 @@ function renderFront(d){
   const earn = groups.map(g => `<div class="fp-row"><span class="t">${esc(g.when)}</span><span class="fp-tick">${g.tickers.map(esc).join(" · ")}</span></div>`).join("");
   const evts = (fp.events || []).map(e => `<div class="fp-row"><span class="t">${esc(e.time || "––:––")}</span><span>${esc(e.label)}</span></div>`).join("");
 
-  const x = hotRows((d.tabs || {})["X Top 50"], 10), rd = hotRows((d.tabs || {})["Reddit Top 50"], 10);
-  const both = new Set((x || []).map(r => r.ticker).filter(t => (rd || []).some(r => r.ticker === t)));
-  const dot = t => both.has(t) ? '<span class="dot" title="On both lists">●</span>' : "";
-  const trend = t => t === "rising" ? '<span class="up">▲</span>' : t === "falling" ? '<span class="dn">▼</span>' : '<span class="neu">–</span>';
-  const xTbl = x && x.length ? `<table class="hot"><thead><tr><th class="l">Ticker</th><th>Mentions</th><th>Bullish</th><th>Trend</th></tr></thead><tbody>${
-    x.map(r => `<tr><td class="l"><span class="sym">${esc(r.ticker)}</span> ${dot(r.ticker)}</td><td>${esc(r.ment)}</td><td class="up">${esc(r.bull)}</td><td>${trend(r.trend)}</td></tr>`).join("")}</tbody></table>` : '<div class="note">No X data.</div>';
-  const rTbl = rd && rd.length ? `<table class="hot"><thead><tr><th class="l">Ticker</th><th>Mentions</th><th>24h</th></tr></thead><tbody>${
-    rd.map(r => `<tr><td class="l"><span class="sym">${esc(r.ticker)}</span> ${dot(r.ticker)}</td><td>${esc(r.ment)}</td><td class="${isNum(r.chgV) ? (r.chgV > 0 ? "up" : r.chgV < 0 ? "dn" : "neu") : "neu"}">${esc(r.chg)}</td></tr>`).join("")}</tbody></table>` : '<div class="note">No Reddit data.</div>';
+  // Hot stocks: X and Reddit top 10 side by side, tickers only, in rank order
+  const x = hotRows((d.tabs || {})["X Top 50"], 10) || [], rd = hotRows((d.tabs || {})["Reddit Top 50"], 10) || [];
+  const hotN = Math.max(x.length, rd.length);
+  const hotTbl = hotN ? `<table class="hot"><thead><tr><th class="l">#</th><th class="l">X</th><th class="l">Reddit</th></tr></thead><tbody>${
+    Array.from({length: hotN}, (_, i) => `<tr><td class="l neu">${i + 1}</td><td class="l"><span class="tkr">${esc((x[i] || {}).ticker || "")}</span></td><td class="l"><span class="tkr">${esc((rd[i] || {}).ticker || "")}</span></td></tr>`).join("")
+  }</tbody></table>` : '<div class="note">No X or Reddit data.</div>';
 
   host.innerHTML = `
     <div class="fp-mast"><h1>Market Brief</h1><span>${esc(fp.startedText)} · ${fp.headlines} headlines${fp.windowText ? " " + esc(fp.windowText) : ""}</span></div>
@@ -532,14 +532,13 @@ function renderFront(d){
       <div>
         ${macro ? `<div class="fp-h">MACRO</div><ul class="fp-list">${macro}</ul>` : ""}
         ${corp ? `<div class="fp-h">CORPORATE</div><ul class="fp-list corp">${corp}</ul>` : ""}
-        ${fp.feedProblems && fp.feedProblems.length ? `<div class="note">Feed problems: ${fp.feedProblems.map(esc).join(" · ")}</div>` : ""}
+        ${fp.feedProblems && fp.feedProblems.length >= 3 ? `<div class="note" style="color:var(--accent)">${fp.feedProblems.length} news feeds failed, so this brief may be thin: ${fp.feedProblems.map(esc).join(" · ")}</div>` : ""}
       </div>
       <aside class="fp-side">
         ${earn ? `<section><div class="fp-h">EARNINGS · YOUR SHORTLIST</div>${earn}</section>` : ""}
         ${evts ? `<section><div class="fp-h">ECONOMIC CALENDAR <span style="font-weight:400">(GST)</span></div>${evts}</section>` : ""}
         ${fp.watch ? `<section><div class="fp-h">WHAT TO WATCH</div><div class="fp-watch">${esc(fp.watch)}</div></section>` : ""}
-        <section><div class="fp-h">HOT ON X</div>${xTbl}</section>
-        <section><div class="fp-h">HOT ON REDDIT</div>${rTbl}${both.size ? '<div class="note"><span class="dot" style="color:#ff8a00">●</span> on both lists</div>' : ""}</section>
+        <section><div class="fp-h">HOT STOCKS · X / REDDIT</div>${hotTbl}</section>
       </aside>
     </div>`;
 }
@@ -663,7 +662,7 @@ function drawEarnings(){
     (a.date ? 0 : 1) - (b.date ? 0 : 1) || a.date.localeCompare(b.date) ||
     (SESS_ORDER[a.session] ?? 9) - (SESS_ORDER[b.session] ?? 9) || a.ticker.localeCompare(b.ticker));
   const shortHtml = short.length ? `<div class="wrap"><table class="ern"><thead><tr><th class="l">Ticker</th><th class="l">Report</th><th class="l">Session</th>${METRIC_HEAD}<th></th></tr></thead><tbody>${
-    short.map(r => `<tr style="${r.date === today ? "background:rgba(224,168,75,.10)" : ""}"><td class="l"><span class="sym">${esc(r.ticker)}</span><span class="co">${esc(r.company || "")}</span></td>
+    short.map(r => `<tr style="${r.date === today ? "background:rgba(224,168,75,.10)" : ""}"><td class="l"><span class="tkr">${esc(r.ticker)}</span><span class="co">${esc(r.company || "")}</span></td>
       <td class="l">${esc(shortDay(r.date))}</td><td class="l">${esc(r.session)}</td>${metricCells(r)}
       <td><button class="ebtn rm" data-op="remove" data-t="${esc(r.ticker)}" title="Remove from shortlist">✕</button></td></tr>`).join("")
   }</tbody></table></div>` : '<div class="empty" style="padding:20px">Your shortlist is empty. Add names from the calendar below with +.</div>';
@@ -678,7 +677,7 @@ function drawEarnings(){
        <div class="wrap"><table class="ern"><thead><tr><th class="l">Ticker</th>${METRIC_HEAD}<th></th></tr></thead><tbody>${
         sess[k].sort((a, b) => (b.cap || 0) - (a.cap || 0)).map(r => {
           const on = E.picked.has(r.ticker);
-          return `<tr style="${on ? "background:rgba(46,190,120,.08)" : ""}"><td class="l"><span class="sym">${esc(r.ticker)}</span><span class="co">${esc(r.company || "")}</span></td>${metricCells(r)}
+          return `<tr style="${on ? "background:rgba(46,190,120,.08)" : ""}"><td class="l"><span class="tkr">${esc(r.ticker)}</span><span class="co">${esc(r.company || "")}</span></td>${metricCells(r)}
             <td><button class="ebtn ${on ? "on" : "add"}" data-op="${on ? "remove" : "add"}" data-t="${esc(r.ticker)}" title="${on ? "On your shortlist (click to remove)" : "Add to shortlist"}">${on ? "✓" : "+"}</button></td></tr>`;
         }).join("")}</tbody></table></div>`).join("");
     return `<details class="eday${day === today ? " today" : ""}" ${day >= today ? "open" : ""}><summary>${esc(dayLabel(day))} · ${n}${day === today ? " · today" : ""}</summary>${blocks}</details>`;
