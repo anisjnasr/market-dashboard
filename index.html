@@ -39,7 +39,6 @@ h3{font-size:14px;font-weight:600;margin:0 0 8px;color:var(--muted)}
 .snap .tile{display:flex;flex-direction:column;gap:10px;padding:11px 12px}
 .snap .tile .k{color:var(--text);font-size:13px}
 .snap .tile .kv{color:var(--muted);font-weight:600;font-size:12px}
-.pair b.flat{color:var(--text)}
 .snap .tile .v{font-size:26px;margin:0;line-height:1.1}
 .snap .tile .s{gap:16px}
 .snap .tile .s b:not(.up):not(.dn){color:var(--text)}
@@ -383,7 +382,7 @@ function scaleFor(r, key){
 }
 
 // One performance block: table chips, optional group chips + search, sortable heat table
-function perfSection(host, uid, title, tables, note){
+function perfSection(host, uid, title, tables, note, noGroup){
   host.insertAdjacentHTML("beforeend", `<section><h2>${esc(title)}</h2>
     <div class="toolbar" id="${uid}T"></div><div class="toolbar" id="${uid}G"></div>
     <div class="wrap" id="${uid}P"></div>${note ? `<div class="note">${note}</div>` : ""}</section>`);
@@ -403,7 +402,7 @@ function perfSection(host, uid, title, tables, note){
     ]);
   // a table whose rows all share one group (Sectors) gets no Group column
   const allCols = cols, oneGroup = () => new Set(tables[tIdx].rows.map(r => r.group)).size < 2;
-  const colsNow = () => oneGroup() ? allCols.filter(c => c.key !== "group") : allCols;
+  const colsNow = () => noGroup || oneGroup() ? allCols.filter(c => c.key !== "group") : allCols;
   const rowsNow = () => tables[tIdx].rows.filter(r =>
     group === "All" || r.group === group);
   const draw = buildTable($(uid + "P"), colsNow, rowsNow);
@@ -451,20 +450,19 @@ function renderMarket(m){
   if (vix && isNum(vix.last)) tiles += card("VIX", vix.last.toFixed(2), [vix.m1, vix.m3], pct, v => v > 0 ? "dn" : "up");
   if (y2 && y10 && isNum(y2.last) && isNum(y10.last)){
     const sp = Math.round((y10.last - y2.last) * 100);
-    tiles += card("2Y–10Y", `${sign(sp)}${sp} bp`, [y10.m1 - y2.m1, y10.m3 - y2.m3], v => `${sign(v)}${Math.round(v)} bp`, () => "flat");
+    tiles += card("2Y–10Y", `${sign(sp)}${sp} bp`, [y10.m1 - y2.m1, y10.m3 - y2.m3], v => `${sign(v)}${Math.round(v)} bp`, ud);
   }
   $("mTiles").innerHTML = tiles;
 
   // ---- performance: macro assets and volatility & rates ----
-  perfSection(host, "mk", "Performance", byTitle(m, /MACRO|VOLATILITY/), FLAGS_NOTE);
+  perfSection(host, "mk", "Performance", byTitle(m, /MACRO|VOLATILITY/), FLAGS_NOTE, true);
 
   // ---- relative performance ----
-  host.insertAdjacentHTML("beforeend", `<section><h2>Relative performance <small>A minus B return · Read based on ${esc(m.relative.readPeriod)}</small></h2><div class="wrap" id="mRel"></div></section>`);
+  host.insertAdjacentHTML("beforeend", `<section><h2>Relative performance <small>A minus B return</small></h2><div class="wrap" id="mRel"></div></section>`);
   const relCols = [{key:"label", label:"Pair", cls:"l", render: r => `<span class="sym">${esc(r.label)}</span>`}]
     .concat(m.relative.periods.map((p, i) => ({key:"p" + i, label:p, sort: r => r.vals[i],
       render: r => pct(r.vals[i]), heat: r => heat(r.vals[i], m.relative.scale[i])})))
-    .concat([{key:"read", label:"Read (" + m.relative.readPeriod + ")", cls:"l",
-      render: r => `<span class="${toneCls(r.tone)}">${esc(r.read)}</span>`}]);
+;
   buildTable($("mRel"), relCols, () => m.relative.rows);
 }
 
