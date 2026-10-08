@@ -403,8 +403,10 @@ function perfSection(host, uid, title, tables, note, noGroup){
   // a table whose rows all share one group (Sectors) gets no Group column
   const allCols = cols, oneGroup = () => new Set(tables[tIdx].rows.map(r => r.group)).size < 2;
   const colsNow = () => noGroup || oneGroup() ? allCols.filter(c => c.key !== "group") : allCols;
-  const rowsNow = () => tables[tIdx].rows.filter(r =>
-    group === "All" || r.group === group);
+  // default order: biggest 1D gain first (the fixed Volatility & rates table keeps its own order)
+  const byD1 = (a, b) => (isNum(b.d1) ? b.d1 : -Infinity) - (isNum(a.d1) ? a.d1 : -Infinity);
+  const rowsNow = () => { const t = tables[tIdx], rows = t.rows.filter(r => group === "All" || r.group === group);
+    return /VOLATILITY/i.test(t.title) ? rows : rows.slice().sort(byD1); };
   const draw = buildTable($(uid + "P"), colsNow, rowsNow);
   function drawGroups(){
     const groups = ["All", ...new Set(tables[tIdx].rows.map(r => r.group))];
@@ -420,7 +422,7 @@ function perfSection(host, uid, title, tables, note, noGroup){
   });
   drawGroups();
 }
-const FLAGS_NOTE = 'Click a column header to sort; click again to reverse, a third time to reset. Rates show changes in basis points. <span class="flag stale"></span> stale data · <span class="flag missing"></span> missing data.';
+const FLAGS_NOTE = 'Sorted by 1D by default. Click a column header to sort; click again to reverse, a third time to go back to 1D. Rates show changes in basis points. <span class="flag stale"></span> stale data · <span class="flag missing"></span> missing data.';
 const byTitle = (m, re) => m.tables.filter(t => re.test(t.title));
 
 function renderMarket(m){
