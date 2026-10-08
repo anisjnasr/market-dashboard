@@ -8,7 +8,8 @@
 :root{
   --bg:#111214; --panel:#1a1b1e; --panel2:#202125; --line:#2a2c30;
   --text:#e6e6e6; --muted:#8b8d93; --accent:#e0a84b;
-  --tick:#8ab4ff;   /* every ticker on the site uses this colour, bold */
+  --tick:#e0a84b;   /* ticker chip fill: every ticker on the site is an amber chip */
+  --tick-ink:#1a1206;
   --up:43,182,115; --dn:229,83,75; --neu:139,141,147;
 }
 *{box-sizing:border-box}
@@ -61,7 +62,8 @@ tr.grp th.g2{background:rgba(176,120,232,.32)}
 td.wrapcell{white-space:normal;min-width:220px;max-width:420px}
 tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .sym{font-weight:700}
-.tkr{color:var(--tick);font-weight:700}
+.tkr{display:inline-block;background:var(--tick);color:var(--tick-ink);font:700 12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:0 6px;border-radius:4px;white-space:nowrap;letter-spacing:.02em}
+.tkr:empty{display:none}
 .nm{color:var(--muted);font-size:12px;margin-left:6px}
 .flag{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:6px;vertical-align:middle}
 .flag.stale{background:var(--accent)} .flag.missing{background:rgb(var(--dn))}
@@ -92,21 +94,19 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .status{margin:0 22px 12px;padding:8px 12px;border-radius:6px;background:rgba(224,168,75,.14);color:var(--accent);font-size:13px}
 .status.err{background:rgba(var(--dn),.14);color:rgb(var(--dn))}
 /* ---- Front Page ---- */
-.fp-mast{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--text);padding-bottom:10px;margin-bottom:18px}
-.fp-mast h1{font:700 30px/1.1 Charter,"Iowan Old Style",Georgia,serif;margin:0;letter-spacing:-.01em}
-.fp-mast span{color:var(--muted);font-size:13px}
+.fp-mast{color:var(--muted);font-size:13px;margin-bottom:14px}
 .fp-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:32px}
 .fp-h{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.06em;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.fp-h.big{font-size:16px;color:#fff;letter-spacing:.1em;background:var(--panel);border:0;border-left:4px solid var(--accent);padding:7px 12px;margin:0 0 4px}
 .fp-list{list-style:none;margin:0 0 26px;padding:0}
-.fp-list li{display:grid;grid-template-columns:22px 120px minmax(0,1fr);gap:4px 10px;padding:10px 0;border-bottom:1px solid var(--line)}
-.fp-list.corp li{grid-template-columns:96px 120px minmax(0,1fr)}
-.fp-dir{font-size:13px;text-align:center;padding-top:3px}
+.fp-list li{display:grid;grid-template-columns:100px 120px minmax(0,1fr);gap:4px 10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.fp-dir{font-size:14px;text-align:center;padding-top:2px}
 .fp-tag{font-size:12px;font-weight:700;letter-spacing:.03em;padding-top:3px}
 .fp-txt{font:16px/1.55 Charter,"Iowan Old Style",Georgia,serif;color:var(--text)}
 .fp-src{font:12px system-ui,sans-serif;color:var(--muted);margin-left:6px;text-decoration:none;white-space:nowrap}
 .fp-src:hover{color:var(--accent);text-decoration:underline}
-.fp-ticks{display:flex;flex-direction:column;gap:3px;padding-top:2px}
-.fp-tick{font-weight:700;font-size:13px;color:var(--tick)}
+.fp-ticks{display:flex;flex-wrap:wrap;align-content:flex-start;gap:4px;padding-top:2px}
+.fp-tks{display:flex;flex-wrap:wrap;gap:4px}
 .fp-fig{grid-column:3;display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:4px}
 .fp-fig b{color:var(--text);font-weight:600}
 .fp-side section{margin-bottom:24px}
@@ -119,7 +119,7 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .hot .dot{color:#ff8a00}
 .fp-err{border:1px solid rgba(var(--dn),.5);background:rgba(var(--dn),.1);border-radius:8px;padding:16px;margin-bottom:20px}
 @media (max-width:980px){.fp-grid{grid-template-columns:1fr}}
-@media (max-width:600px){.fp-list li,.fp-list.corp li{grid-template-columns:22px 1fr}.fp-list li .fp-txt,.fp-fig{grid-column:1 / -1}.fp-list.corp li{grid-template-columns:1fr 1fr}}
+@media (max-width:600px){.fp-list li{grid-template-columns:100px 1fr}.fp-list li .fp-txt,.fp-fig{grid-column:1 / -1}}
 /* ---- MM drill-down ---- */
 td.drill{cursor:pointer}
 td.drill:hover{outline:1px solid var(--accent);outline-offset:-1px}
@@ -134,7 +134,7 @@ td.drill:hover{outline:1px solid var(--accent);outline-offset:-1px}
 .dr-card h4{margin:0 0 7px;font-size:13px;display:flex;justify-content:space-between;gap:8px}
 .dr-card h4 span{color:var(--muted);font-weight:600}
 .dr-chips{display:flex;flex-wrap:wrap;gap:5px}
-.tk{display:inline-flex;gap:5px;align-items:baseline;padding:3px 7px;border-radius:5px;font-size:12px;font-weight:700;text-decoration:none;color:var(--tick);background:var(--panel2);border:1px solid var(--line)}
+.tk{display:inline-flex;gap:6px;align-items:center;padding:3px 7px 3px 3px;border-radius:5px;font-size:12px;font-weight:700;text-decoration:none;color:var(--text);background:var(--panel2);border:1px solid var(--line)}
 .tk.up i{color:rgb(var(--up))} .tk.dn i{color:rgb(var(--dn))}
 .tk:hover{border-color:var(--tick)}
 .tk i{font-style:normal;font-weight:600;font-size:11px}
@@ -476,7 +476,7 @@ const CAT_COLOR = (() => {
     "#4cc3bb": ["PARTNERSHIP","PRODUCT","SUPPLY-CHAIN","SYMPATHY"],
     "#b393e6": ["M&A","CAPITAL","LEADERSHIP","INDEX-FLOW","CRYPTO","FISCAL"],
     "#ec7a70": ["REGULATORY","LEGAL","CLINICAL","CREDIT","OPERATIONAL","GEOPOLITICS","GEOPOLITICAL","GEOPOL","CHINA","EUROPE"],
-    "#e0a84b": ["ENERGY","COMMODITY","METALS","TARIFFS","TRADE"]
+    "#f0803c": ["ENERGY","COMMODITY","METALS","TARIFFS","TRADE"]
   };
   const m = {}; Object.keys(fam).forEach(c => fam[c].forEach(k => m[k] = c)); return m;
 })();
@@ -508,7 +508,7 @@ function renderFront(d){
   }).join("");
 
   const corp = (fp.corporate || []).map(c =>
-    `<li><span class="fp-ticks">${(c.tickers || []).map(t => `<span class="fp-tick">${esc(t)}</span>`).join("")}</span>${tag(c.category)}
+    `<li><span class="fp-ticks">${(c.tickers || []).map(t => `<span class="tkr">${esc(t)}</span>`).join("")}</span>${tag(c.category)}
       <span class="fp-txt">${esc(c.note)}${src(c)}</span></li>`).join("");
 
   // sidebar
@@ -516,7 +516,7 @@ function renderFront(d){
   const groups = [];
   if ((fp.reported || []).length) groups.push({when: "Reported", tickers: fp.reported});
   (fp.earnings || []).forEach(g => groups.push({when: g.when.charAt(0) + g.when.slice(1).toLowerCase(), tickers: g.tickers}));
-  const earn = groups.map(g => `<div class="fp-row"><span class="t">${esc(g.when)}</span><span class="fp-tick">${g.tickers.map(esc).join(" · ")}</span></div>`).join("");
+  const earn = groups.map(g => `<div class="fp-row"><span class="t">${esc(g.when)}</span><span class="fp-tks">${g.tickers.map(t => `<span class="tkr">${esc(t)}</span>`).join("")}</span></div>`).join("");
   const evts = (fp.events || []).map(e => `<div class="fp-row"><span class="t">${esc(e.time || "––:––")}</span><span>${esc(e.label)}</span></div>`).join("");
 
   // Hot stocks: X and Reddit top 10 side by side, tickers only, in rank order
@@ -527,11 +527,11 @@ function renderFront(d){
   }</tbody></table>` : '<div class="note">No X or Reddit data.</div>';
 
   host.innerHTML = `
-    <div class="fp-mast"><h1>Market Brief</h1><span>${esc(fp.startedText)} · ${fp.headlines} headlines${fp.windowText ? " " + esc(fp.windowText) : ""}</span></div>
+    <div class="fp-mast">${esc(fp.startedText)} · ${fp.headlines} headlines${fp.windowText ? " " + esc(fp.windowText) : ""}</div>
     <div class="fp-grid">
       <div>
-        ${macro ? `<div class="fp-h">MACRO</div><ul class="fp-list">${macro}</ul>` : ""}
-        ${corp ? `<div class="fp-h">CORPORATE</div><ul class="fp-list corp">${corp}</ul>` : ""}
+        ${macro ? `<div class="fp-h big">MACRO</div><ul class="fp-list">${macro}</ul>` : ""}
+        ${corp ? `<div class="fp-h big">CORPORATE</div><ul class="fp-list corp">${corp}</ul>` : ""}
         ${fp.feedProblems && fp.feedProblems.length >= 3 ? `<div class="note" style="color:var(--accent)">${fp.feedProblems.length} news feeds failed, so this brief may be thin: ${fp.feedProblems.map(esc).join(" · ")}</div>` : ""}
       </div>
       <aside class="fp-side">
@@ -578,7 +578,7 @@ function drillSide(d, name, up){
     .map(g => {
       const list = groups[g].sort((a, b) => up ? b.c - a.c : a.c - b.c);
       return `<div class="dr-card"><h4>${esc(g)} <span>${list.length}</span></h4><div class="dr-chips">${
-        list.map(x => `<a class="tk ${up ? "up" : "dn"}" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(x.t)}" target="_blank" rel="noopener">${esc(x.t)}<i>${sign(x.c)}${x.c.toFixed(1)}%</i></a>`).join("")
+        list.map(x => `<a class="tk ${up ? "up" : "dn"}" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(x.t)}" target="_blank" rel="noopener"><b class="tkr">${esc(x.t)}</b><i>${sign(x.c)}${x.c.toFixed(1)}%</i></a>`).join("")
       }</div></div>`;
     }).join("");
   return {n: items.length, html: cards || '<div class="note">No stocks.</div>'};
