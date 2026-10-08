@@ -34,18 +34,20 @@ h3{font-size:14px;font-weight:600;margin:0 0 8px;color:var(--muted)}
 .tile .v{font-size:20px;font-weight:700;margin:4px 0 2px}
 .tile .s{font-size:12px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap}
 .tile .r{font-size:12px;margin-top:6px}
-/* Market snapshot: 6-column grid, VIX + curve on top, pair cards below */
-.snap{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
-.snap .tile{display:flex;flex-direction:column;gap:8px;min-height:96px}
-.snap .tile.big{grid-column:span 3}
+/* Market gauges: 8 cards in one row, VIX + curve on top, pair cards below */
+.snap{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px}
+.snap .tile{display:flex;flex-direction:column;gap:10px;padding:11px 12px}
+.snap .tile .k{color:var(--text);font-size:13px}
+.snap .tile .kv{color:var(--muted);font-weight:600;font-size:12px}
+.pair b.flat{color:var(--text)}
 .snap .tile .v{font-size:26px;margin:0;line-height:1.1}
 .snap .tile .s{gap:16px}
 .snap .tile .s b:not(.up):not(.dn){color:var(--text)}
 .pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:auto}
 .pair span{display:block;font-size:11px;color:var(--muted);font-weight:600}
-.pair b{display:block;font-size:18px;font-weight:700;line-height:1.2}
-@media (max-width:1100px){.snap{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media (max-width:640px){.snap{grid-template-columns:repeat(2,minmax(0,1fr))}.snap .tile.big{grid-column:span 2}}
+.pair b{display:block;font-size:17px;font-weight:700;line-height:1.2}
+@media (max-width:1100px){.snap{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:640px){.snap{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .pill{padding:1px 7px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap}
 .up{color:rgb(var(--up))} .dn{color:rgb(var(--dn))} .neu{color:var(--muted)}
 .pill.up{background:rgba(var(--up),.18)} .pill.dn{background:rgba(var(--dn),.18)}
@@ -347,7 +349,7 @@ function renderPlainTab(host, title, tab, opts){
       else cells[cells.length - 1].span++;
     });
     groupRow = `<tr class="grp">${cells.map((c, j) =>
-      `<th colspan="${c.span}" class="${j === 0 ? "g0" : (j % 2 ? "g1" : "g2")}${j > 0 ? " gs" : ""}">${esc(c.label)}</th>`).join("")}</tr>`;
+      `<th colspan="${c.span}" class="${j === 0 ? "g0" : (j % 2 ? "g1" : "g2")}${j > 0 ? " gs" : ""}">${j === 0 && /^updated/i.test(c.label) ? "" : esc(c.label)}</th>`).join("")}</tr>`;
   }
 
   const more = tab.total > tab.values.length ? ` · showing ${tab.values.length} of ${tab.total}` : "";
@@ -423,29 +425,30 @@ function renderMarket(m){
   if (!m){ host.innerHTML = '<div class="empty">No Market data in the latest export.</div>'; return; }
   const all = {}; m.tables.forEach(t => t.rows.forEach(r => all[r.sym] = r));
 
-  host.innerHTML = `<section><h2>Market snapshot <small>${esc(m.updatedText)} · ${esc(m.status)}</small></h2><div class="snap" id="mTiles"></div></section>`;
+  host.innerHTML = `<section><h2>Market gauges${/stale|missing/i.test(m.status || "") ? ` <small style="color:var(--accent)">${esc("Stale data: " + String(m.status).replace(/^Data as of:[^·]*·?\s*/i, "").replace(/^\d+\s+STALE:\s*/i, ""))}</small>` : ""}</h2><div class="snap" id="mTiles"></div></section>`;
 
-  // ---- snapshot tiles ----
+  // ---- gauge cards: one row, fixed order, every card = title + 1M / 3M ----
+  const rel = {}; m.relative.rows.forEach(r => rel[r.label] = r);
+  const ri = m.relative.periods.indexOf("1M"), ri3 = m.relative.periods.indexOf("3M");
+  const fromRel = (label, flip) => { const r = rel[label]; if (!r) return null; const k = flip ? -1 : 1; return [r.vals[ri] * k, r.vals[ri3] * k]; };
+  const fromSyms = (a, b) => { const x = all[a], y = all[b]; return x && y && isNum(x.m1) && isNum(y.m1) ? [x.m1 - y.m1, x.m3 - y.m3] : null; };
   const vix = all["^VIX"], y2 = Object.values(all).find(r => r.name === "US 2Y"), y10 = Object.values(all).find(r => r.name === "US 10Y");
-  let tiles = "";
-  if (vix && isNum(vix.last)){
-    const reg = vix.last < 15 ? ["Calm","up"] : vix.last < 20 ? ["Normal","up"] : vix.last < 30 ? ["Elevated","warn"] : ["Stress","dn"];
-    tiles += `<div class="tile big"><div class="k">VIX <span class="pill ${reg[1]}">${reg[0]}</span></div>
-      <div class="v">${vix.last.toFixed(2)}</div>
-      <div class="s"><span>1D <b class="${vix.d1 > 0 ? "dn" : "up"}">${pct(vix.d1)}</b></span><span>1W <b class="${vix.w1 > 0 ? "dn" : "up"}">${pct(vix.w1)}</b></span><span>52W <b>${isNum(vix.lo) ? vix.lo.toFixed(1) : "—"}–${isNum(vix.hi) ? vix.hi.toFixed(1) : "—"}</b></span></div></div>`;
-  }
+  const card = (title, sub, v, fmt, cls) => v ? `<div class="tile"><div class="k"><span>${title}</span>${sub ? `<span class="kv">${sub}</span>` : ""}</div>
+      <div class="pair"><div><span>1M</span><b class="${cls(v[0])}">${fmt(v[0])}</b></div><div><span>3M</span><b class="${cls(v[1])}">${fmt(v[1])}</b></div></div></div>` : "";
+  const ud = v => v >= 0 ? "up" : "dn";
+  let tiles = [
+    ["SPY vs RSP",  fromRel("RSP vs SPY", true)],
+    ["QQQ vs QQQE", fromRel("QQQE vs QQQ", true)],
+    ["MAGS vs QQQE", fromSyms("MAGS", "QQQE")],
+    ["SPY vs IWM",  fromRel("IWM vs SPY", true)],
+    ["QQQ vs DIA",  fromRel("QQQ vs DIA")],
+    ["USD vs Gold", fromRel("USD vs Gold")]
+  ].map(([t, v]) => card(t, "", v, pct, ud)).join("");
+  if (vix && isNum(vix.last)) tiles += card("VIX", vix.last.toFixed(2), [vix.m1, vix.m3], pct, v => v > 0 ? "dn" : "up");
   if (y2 && y10 && isNum(y2.last) && isNum(y10.last)){
     const sp = Math.round((y10.last - y2.last) * 100);
-    tiles += `<div class="tile big"><div class="k">Yield curve 2Y–10Y <span class="pill ${sp >= 0 ? "up" : "dn"}">${sp >= 0 ? "Normal" : "Inverted"}</span></div>
-      <div class="v">${sign(sp)}${sp} bp</div>
-      <div class="s"><span>2Y <b>${y2.last.toFixed(2)}%</b></span><span>10Y <b>${y10.last.toFixed(2)}%</b></span></div></div>`;
+    tiles += card("2Y–10Y", `${sign(sp)}${sp} bp`, [y10.m1 - y2.m1, y10.m3 - y2.m3], v => `${sign(v)}${Math.round(v)} bp`, () => "flat");
   }
-  const ri = m.relative.periods.indexOf("1M"), ri3 = m.relative.periods.indexOf("3M");
-  m.relative.rows.forEach(p => {
-    const a = p.vals[ri], b = p.vals[ri3];
-    tiles += `<div class="tile"><div class="k">${esc(p.label)}</div>
-      <div class="pair"><div><span>1M</span><b class="${a >= 0 ? "up" : "dn"}">${pct(a)}</b></div><div><span>3M</span><b class="${b >= 0 ? "up" : "dn"}">${pct(b)}</b></div></div></div>`;
-  });
   $("mTiles").innerHTML = tiles;
 
   // ---- performance: macro assets and volatility & rates ----
@@ -464,7 +467,7 @@ function renderMarket(m){
 function renderSectors(m){
   const host = $("tab-sectors");
   if (!m){ host.innerHTML = '<div class="empty">No sector data in the latest export.</div>'; return; }
-  host.innerHTML = fresh(`Prices as of <b>${esc(asOfText(m.status))}</b> · refreshed ${esc(updText(m.updatedText))}`);
+  host.innerHTML = "";
   perfSection(host, "sc", "Sectors", byTitle(m, /SECTOR/));
   perfSection(host, "in", "Industries", byTitle(m, /INDUSTR/), FLAGS_NOTE);
 
@@ -538,7 +541,6 @@ function renderFront(d){
   }</tbody></table>` : '<div class="note">No X or Reddit data.</div>';
 
   host.innerHTML = `
-    <div class="fp-mast">${esc(fp.startedText)} · ${fp.headlines} headlines${fp.windowText ? " " + esc(fp.windowText) : ""}</div>
     <div class="fp-grid">
       <div>
         ${macro ? `<div class="fp-h big">MACRO</div><ul class="fp-list">${macro}</ul>` : ""}
@@ -694,7 +696,7 @@ function drawEarnings(){
     return `<details class="eday${day === today ? " today" : ""}" ${day >= today ? "open" : ""}><summary>${esc(dayLabel(day))} · ${n}${day === today ? " · today" : ""}</summary>${blocks}</details>`;
   }).join("");
 
-  host.innerHTML = fresh(EARN.updated ? `Earnings data updated <b>${esc(EARN.updated)}</b> · source: Finnhub` : "Earnings data: update time not available") + `<section><h2>Your shortlist <small>${short.length} names · figures once reported, estimates until then</small></h2>${shortHtml}</section>
+  host.innerHTML = `<section><h2>Your shortlist <small>${short.length} names · figures once reported, estimates until then</small></h2>${shortHtml}</section>
     <section><h2>Earnings calendar <small>this week · $1bn+ market cap · largest first</small></h2>${calHtml || '<div class="empty">No calendar data yet.</div>'}</section>`;
 }
 
@@ -757,7 +759,6 @@ function renderES(es){
     rows.map((r, k) => `<tr>${r.map((c, i) => `<td class="${i ? (i === r.length - 1 ? "neu" : "") : "l"}" style="${(boldRows || []).includes(k) ? "font-weight:700" : ""}">${isNum(c) ? f2(c).replace(/\.00$/, "") : esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 
   host.innerHTML = `
-    ${fresh(`Based on the <b>${esc(es.asOfText)}</b> close${es.updatedText ? ` · calculated ${esc(es.updatedText)}` : ""}`)}
     <section><h2>ES forecast <small>ES ${f2(es.close)} · ${esc(es.regime)}</small></h2>
       <div class="es-tiles">
         <div class="tile"><div class="k">Potential range</div><div class="v">${R.typical}<span class="es-word">pts · ${esc(R.word)}</span></div><div class="s">${R.quiet} quiet — ${R.busy} busy</div></div>
@@ -806,8 +807,7 @@ function renderPlainTabs(d){
     const latest = dc >= 0 ? mmTab.values.map(v => String(v[dc] || "")).filter(Boolean).sort().pop() : "";
     const ran = String((mmTab.groups || [])[0] || "").replace(/^Updated\s*/i, "");
     const ref = refSession(d), behind = latest && ref && latest < ref;
-    $("tab-mm").insertAdjacentHTML("beforeend", fresh(`Latest session <b>${esc(shortDay(latest))}</b>${ran ? ` · job ran ${esc(ran)}` : ""}` +
-      (behind ? ` · one session behind the market: Massive publishes after midnight New York (about 08:00 UAE in summer, 09:00 in winter)` : ""), behind));
+    if (behind) $("tab-mm").insertAdjacentHTML("beforeend", fresh(`Latest session <b>${esc(shortDay(latest))}</b>: one session behind the market. Massive publishes after midnight New York (about 08:00 UAE in summer, 09:00 in winter)`, true));
   }
   $("tab-mm").insertAdjacentHTML("beforeend", '<div class="note" style="margin:0 0 8px">Click any Up/Down 4%, Participation, W20%, Q25%, NH21 or NL52W number to see the stocks behind it.</div>');
   renderPlainTab($("tab-mm"), "MM", t["MM"], {hideTitle: true, noSearch: true, drill: true});
