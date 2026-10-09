@@ -762,16 +762,63 @@ function tabObjects(tab){
 }
 
 let EARN = null;   // {short: [...], cal: [...], picked: Set}
+
+// Sheet dates arrive as serial day numbers (46239 = 5 Aug 2026) or as text
+function sheetDate(v){
+  if (isNum(v)) return new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 86400000).toISOString().slice(0, 10);
+  const s = String(v || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = s ? new Date(s) : null;
+  return d && !isNaN(d) ? new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().slice(0, 10) : "";
+}
+
+// The Earnings Week tab is laid out for reading: day headings ("Monday, Oct 5 (3)"),
+// session headings ("Before open (BMO) (1)"), then one row per company. Flatten it.
+function weekRows(tab){
+  if (!tab) return [];
+  const MON = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+  const today = new Date(todayUAE() + "T12:00:00Z");
+  const hi = tab.display.findIndex(r => String(r[1]).trim() === "Ticker");
+  const h = hi >= 0 ? tab.display[hi].map(x => String(x).trim()) : [];
+  const col = name => h.indexOf(name);
+  const out = [], seen = new Set();
+  let date = "", session = "TBD";
+  tab.display.forEach((d, i) => {
+    if (i <= hi) return;
+    const first = String(d[0] || "").trim(), v = tab.values[i];
+    const m = first.match(/^[A-Za-z]+,\s+([A-Za-z]{3})[a-z]*\s+(\d{1,2})/);
+    if (m && !String(d[1] || "").trim()){
+      let dt = new Date(Date.UTC(today.getUTCFullYear(), MON[m[1].toLowerCase()], +m[2]));
+      if (dt - today > 200 * 864e5) dt.setUTCFullYear(dt.getUTCFullYear() - 1);
+      if (today - dt > 200 * 864e5) dt.setUTCFullYear(dt.getUTCFullYear() + 1);
+      date = dt.toISOString().slice(0, 10); return;
+    }
+    if (!String(d[1] || "").trim()){
+      session = /BMO/.test(first) ? "BMO" : /AMC/.test(first) ? "AMC" : /during/i.test(first) ? "DMH" : "TBD"; return;
+    }
+    const tk = String(d[col("Ticker")] || "").trim().toUpperCase();
+    if (!tk || seen.has(tk + date)) return;
+    seen.add(tk + date);
+    const num = name => { const k = col(name); return k >= 0 && isNum(v[k]) ? v[k] : null; };
+    const surpCols = h.reduce((a, x, k) => (x === "Surp %" ? a.concat(k) : a), []);
+    out.push({"Ticker": tk, "Company": d[col("Company")], "Date": date, "Session": session,
+      "Market Cap": num("Mkt Cap"), "Sales Est": num("Sales Est"), "Sales Act": num("Sales Act"),
+      "Sales Surp %": surpCols[0] !== undefined && isNum(v[surpCols[0]]) ? v[surpCols[0]] : null,
+      "EPS Est": num("EPS Est"), "EPS Act": num("EPS Act"),
+      "EPS Surp %": surpCols[1] !== undefined && isNum(v[surpCols[1]]) ? v[surpCols[1]] : null});
+  });
+  return out;
+}
 function renderEarnings(d){
   const t = d.tabs || {};
-  const cal = tabObjects(t["Earnings Data"]).map(r => ({
-    ticker: String(r["Ticker"] || "").toUpperCase(), company: r["Company"], date: String(r["Date"] || ""),
+  const cal = (t["Earnings Data"] ? tabObjects(t["Earnings Data"]) : weekRows(t["Earnings Week"])).map(r => ({
+    ticker: String(r["Ticker"] || "").toUpperCase(), company: r["Company"], date: sheetDate(r["Date"]),
     session: String(r["Session"] || "TBD").toUpperCase(), cap: r["Market Cap"],
     salesE: r["Sales Est"], salesA: r["Sales Act"], salesP: r["Sales Surp %"],
     epsE: r["EPS Est"], epsA: r["EPS Act"], epsP: r["EPS Surp %"]
   })).filter(r => r.ticker);
   const short = tabObjects(t["Earnings Shortlist"]).map(r => ({
-    ticker: String(r["Ticker"] || "").toUpperCase(), company: r["Company"], date: String(r["Report Date"] || ""),
+    ticker: String(r["Ticker"] || "").toUpperCase(), company: r["Company"], date: sheetDate(r["Report Date"]),
     session: String(r["Session"] || "").toUpperCase(), cap: r["Market Cap"],
     salesE: r["Sales Est"], salesA: r["Sales Act"], salesP: r["Sales Surp %"],
     epsE: r["EPS Est"], epsA: r["EPS Act"], epsP: r["EPS Surp %"]
