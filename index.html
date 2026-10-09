@@ -485,7 +485,7 @@ function loadHoldings(){
     .then(d => {
       if (!d) return;
       const f = d.fields, etfs = {};
-      Object.keys(d.etfs).forEach(k => etfs[k] = {asOf: d.etfs[k].asOf,
+      Object.keys(d.etfs).forEach(k => etfs[k] = {asOf: d.etfs[k].asOf, src: d.etfs[k].src,
         rows: d.etfs[k].rows.map(a => { const o = {}; f.forEach((n, i) => o[n] = a[i]); return o; })});
       HOLD = {updated: d.updated, etfs};
     }).catch(() => {});
@@ -512,7 +512,7 @@ function holdingRows(h, st, cols){
     return "<td></td>";
   };
   return rows.map(r => `<tr class="hrow">${cols.map(c => cell(c, r)).join("")}</tr>`).join("")
-    + `<tr class="hrow hnote"><td class="l" colspan="${cols.length}">${rows.length} holdings${h.asOf ? " · as of " + esc(h.asOf) : ""} · sorted by ${esc((PERIODS.find(([k]) => k === key) || [, "1D"])[1])}${dir > 0 ? " (lowest first)" : ""} · weight shown in the last column</td></tr>`;
+    + `<tr class="hrow hnote"><td class="l" colspan="${cols.length}">${rows.length} holdings${h.asOf ? " · as of " + esc(h.asOf) : ""}${h.src && !/daggerok/.test(h.src) ? " · source: " + esc(h.src.replace(/^kraneshares|^roundhill|^advisorshares/, m => "issuer file (" + m + ")")) : ""} · sorted by ${esc((PERIODS.find(([k]) => k === key) || [, "1D"])[1])}${dir > 0 ? " (lowest first)" : ""} · weight shown in the last column</td></tr>`;
 }
 const FLAGS_NOTE = 'Sorted by 1D by default. Click a column header to sort; click again to reverse, a third time to go back to 1D. Rates show changes in basis points. <span class="flag stale"></span> stale data · <span class="flag missing"></span> missing data.';
 const byTitle = (m, re) => m.tables.filter(t => re.test(t.title));
