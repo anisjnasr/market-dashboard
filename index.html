@@ -152,6 +152,7 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .fp-row{display:flex;gap:12px;padding:5px 0;font-size:14px}
 .fp-row .t{color:var(--muted);width:72px;flex:none;font-size:13px}
 .fp-watch{font:15px/1.5 Charter,"Iowan Old Style",Georgia,serif}
+.fp-watch.big{font-size:17px;line-height:1.55;color:#fff;padding:12px 2px 22px;margin-bottom:4px}
 .hot{width:100%;font-size:12.5px}
 .hot th{background:none;cursor:default;padding:4px 6px;font-size:11px}
 .hot td{padding:4px 6px}
@@ -690,6 +691,7 @@ function renderFront(d){
   host.innerHTML = `
     <div class="fp-grid">
       <div>
+        ${fp.watch ? `<div class="fp-h big">WHAT TO WATCH</div><div class="fp-watch big">${esc(fp.watch)}</div>` : ""}
         ${macro ? `<div class="fp-h big">MACRO</div><ul class="fp-list">${macro}</ul>` : ""}
         ${corp ? `<div class="fp-h big">CORPORATE</div><ul class="fp-list corp">${corp}</ul>` : ""}
         ${fp.feedProblems && fp.feedProblems.length >= 3 ? `<div class="note" style="color:var(--accent)">${fp.feedProblems.length} news feeds failed, so this brief may be thin: ${fp.feedProblems.map(esc).join(" · ")}</div>` : ""}
@@ -697,7 +699,6 @@ function renderFront(d){
       <aside class="fp-side">
         ${earn ? `<section><div class="fp-h">EARNINGS · YOUR SHORTLIST</div>${earn}</section>` : ""}
 <section id="fpCal">${evts ? `<div class="fp-h">ECONOMIC CALENDAR <span style="font-weight:400">(GST)</span></div>${evts}` : ""}</section>
-        ${fp.watch ? `<section><div class="fp-h">WHAT TO WATCH</div><div class="fp-watch">${esc(fp.watch)}</div></section>` : ""}
         <section><div class="fp-h">HOT STOCKS · X / REDDIT</div>${hotTbl}</section>
       </aside>
     </div>`;
