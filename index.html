@@ -58,6 +58,18 @@ h3{font-size:14px;font-weight:600;margin:0 0 8px;color:var(--muted)}
 .chip.on{color:#1a1a1a;background:var(--accent);border-color:var(--accent);font-weight:600}
 input[type=search]{background:var(--panel);border:1px solid var(--line);color:var(--text);padding:6px 10px;border-radius:6px;font:inherit;margin-left:auto;width:200px}
 .toolbar:empty{display:none}
+/* ETF constituents (Industries table) */
+.xp{background:none;border:0;color:var(--muted);cursor:pointer;font-size:12px;width:18px;padding:0;margin-right:4px;transition:transform .15s;display:inline-block}
+.xp:hover{color:var(--accent)}
+.xp.on{transform:rotate(90deg);color:var(--accent)}
+.xp-gap{display:inline-block;width:22px}
+tr.xp-open td{border-bottom:1px solid var(--accent)}
+tr.hrow td{background:#141518;font-size:12.5px;padding-top:4px;padding-bottom:4px;border-top:1px solid rgba(255,255,255,.04)}
+tr.hrow td.hn{padding-left:36px;overflow:hidden;text-overflow:ellipsis}
+tr.hrow td.hn .tkr{font-size:13px}
+tr.hrow td.hn .nm{margin-left:8px}
+tr.hrow td.hw{color:var(--muted)}
+tr.hnote td{color:var(--muted);font-size:11.5px;padding:6px 10px 10px 36px;border-bottom:1px solid var(--accent)}
 /* performance tables: fixed column widths so Sectors, Industries and Market tables line up */
 .wrap.perf{width:fit-content;max-width:100%}
 .perf table{table-layout:fixed;width:auto}
@@ -286,8 +298,8 @@ function buildTable(host, colsIn, getRows, init){
     }
     host.innerHTML = `<table><thead>${st.groupRow || ""}<tr>${cols.map(c =>
       `<th class="${c.cls || ""} ${c.gs ? "gs" : ""} ${st.key === c.key ? "sorted" : ""}" data-k="${esc(c.key)}">${esc(c.label)}${st.key === c.key ? (st.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead>
-      <tbody>${rows.map(r => `<tr>${cols.map(c =>
-      `<td ${c.attrs ? c.attrs(r) : ""} class="${(c.tdcls ? c.tdcls(r) : (c.cls || "")) + (c.gs ? " gs" : "")}" style="${c.heat ? c.heat(r) : c.style ? c.style(r) : ""}">${c.render ? c.render(r) : esc(r[c.key])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+      <tbody>${rows.map(r => `<tr${st.rowAttrs ? " " + st.rowAttrs(r) : ""}>${cols.map(c =>
+      `<td ${c.attrs ? c.attrs(r) : ""} class="${(c.tdcls ? c.tdcls(r) : (c.cls || "")) + (c.gs ? " gs" : "")}" style="${c.heat ? c.heat(r) : c.style ? c.style(r) : ""}">${c.render ? c.render(r) : esc(r[c.key])}</td>`).join("")}</tr>${st.after ? st.after(r, st, cols) : ""}`).join("")}</tbody></table>`;
     host.querySelectorAll("th[data-k]").forEach(th => th.onclick = () => {
       const k = th.dataset.k;
       if (st.key === k){ if (st.dir === -1) st.dir = 1; else st.key = null; }
@@ -412,13 +424,16 @@ function scaleFor(r, key){
 }
 
 // One performance block: table chips, optional group chips + search, sortable heat table
-function perfSection(host, uid, title, tables, note, noGroup){
+function perfSection(host, uid, title, tables, note, noGroup, withHoldings){
   host.insertAdjacentHTML("beforeend", `<section><h2>${esc(title)}</h2>
     <div class="toolbar" id="${uid}T"></div><div class="toolbar" id="${uid}G"></div>
     <div class="wrap perf" id="${uid}P"></div>${note ? `<div class="note">${note}</div>` : ""}</section>`);
   let tIdx = 0, group = "All";
+  const open = new Set();                                   // ETFs whose holdings are shown
+  const canOpen = r => withHoldings && HOLD && HOLD.etfs[r.sym];
   const nameCol = {key:"name", label:"Name", cls:"l", sort: r => r.name,
-    render: r => `<span class="sym">${esc(r.name)}</span> <span class="tkr" style="margin-left:4px">${esc(r.sym)}</span>${r.status !== "ok" ? `<span class="flag ${r.status}" title="${r.status} data"></span>` : ""}`};
+    render: r => (withHoldings ? (canOpen(r) ? `<button class="xp${open.has(r.sym) ? " on" : ""}" data-x="${esc(r.sym)}" aria-label="Show holdings">▸</button>` : `<span class="xp-gap"></span>`) : "")
+      + `<span class="sym">${esc(r.name)}</span> <span class="tkr" style="margin-left:4px">${esc(r.sym)}</span>${r.status !== "ok" ? `<span class="flag ${r.status}" title="${r.status} data"></span>` : ""}`};
   const cols = [nameCol, {key:"last", label:"Last", render: fmtLast}]
     .concat(PERIODS.map(([k, lbl]) => ({key:k, label:lbl,
       render: r => r.yield ? bps(r[k]) : pct(r[k]), heat: r => heat(r[k], scaleFor(r, k))})))
@@ -438,7 +453,14 @@ function perfSection(host, uid, title, tables, note, noGroup){
   const byD1 = (a, b) => (isNum(b.d1) ? b.d1 : -Infinity) - (isNum(a.d1) ? a.d1 : -Infinity);
   const rowsNow = () => { const t = tables[tIdx], rows = t.rows.filter(r => group === "All" || r.group === group);
     return /VOLATILITY/i.test(t.title) ? rows : rows.slice().sort(byD1); };
-  const draw = buildTable($(uid + "P"), colsNow, rowsNow);
+  const draw = buildTable($(uid + "P"), colsNow, rowsNow, withHoldings ? {
+    rowAttrs: r => open.has(r.sym) ? 'class="xp-open"' : "",
+    after: (r, st, cols) => open.has(r.sym) && canOpen(r) ? holdingRows(HOLD.etfs[r.sym], st, cols) : ""
+  } : null);
+  if (withHoldings) $(uid + "P").addEventListener("click", e => {
+    const b = e.target.closest(".xp"); if (!b) return;
+    const s = b.dataset.x; open.has(s) ? open.delete(s) : open.add(s); draw();
+  });
   function drawGroups(){
     const groups = ["All", ...new Set(tables[tIdx].rows.map(r => r.group))];
     $(uid + "G").innerHTML = (groups.length > 2 ? groups.map(g => `<button class="chip ${g === group ? "on" : ""}">${esc(g)}</button>`).join("") : "")
@@ -452,6 +474,45 @@ function perfSection(host, uid, title, tables, note, noGroup){
     drawGroups(); draw();
   });
   drawGroups();
+  return draw;
+}
+
+// ---- ETF constituents (etf/holdings.json, built daily by etf_holdings.py) ----
+let HOLD = null;
+function loadHoldings(){
+  return fetch("etf/holdings.json?v=" + Date.now(), {cache: "no-store"})
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if (!d) return;
+      const f = d.fields, etfs = {};
+      Object.keys(d.etfs).forEach(k => etfs[k] = {asOf: d.etfs[k].asOf,
+        rows: d.etfs[k].rows.map(a => { const o = {}; f.forEach((n, i) => o[n] = a[i]); return o; })});
+      HOLD = {updated: d.updated, etfs};
+    }).catch(() => {});
+}
+// Child rows under an ETF: same columns as the table, sorted by the selected
+// period (or 1D when the table is sorted by something else), biggest first.
+function holdingRows(h, st, cols){
+  const key = PERIODS.some(([k]) => k === st.key) ? st.key : "d1";
+  const dir = PERIODS.some(([k]) => k === st.key) ? st.dir : -1;
+  const rows = h.rows.slice().sort((a, b) => {
+    const x = a[key], y = b[key];
+    if (!isNum(x) && !isNum(y)) return (b.weight || 0) - (a.weight || 0);
+    if (!isNum(x)) return 1; if (!isNum(y)) return -1;
+    return (x - y) * dir;
+  });
+  const cell = (c, r) => {
+    if (c.key === "name") return `<td class="l hn"><span class="tkr">${esc(r.sym)}</span><span class="nm">${esc(r.name)}</span></td>`;
+    if (c.key === "last") return `<td>${isNum(r.last) ? fmtLast(r) : "—"}</td>`;
+    if (PCT_SCALE[c.key] !== undefined) return `<td style="${heat(r[c.key], PCT_SCALE[c.key] * 2)}">${pct(r[c.key])}</td>`;
+    if (c.key === "rng") return `<td>${isNum(r.hi) && isNum(r.lo) && r.hi !== r.lo
+      ? `<span class="rng"><i style="left:${Math.max(0, Math.min(97, (r.last - r.lo) / (r.hi - r.lo) * 100))}%"></i></span>` : "—"}</td>`;
+    if (c.key === "off") return `<td>${isNum(r.hi) && isNum(r.last) ? pct(r.last / r.hi - 1) : "—"}</td>`;
+    if (c.key === "group") return `<td class="l hw" title="Weight in the ETF">${isNum(r.weight) ? r.weight.toFixed(1) + "%" : ""}</td>`;
+    return "<td></td>";
+  };
+  return rows.map(r => `<tr class="hrow">${cols.map(c => cell(c, r)).join("")}</tr>`).join("")
+    + `<tr class="hrow hnote"><td class="l" colspan="${cols.length}">${rows.length} holdings${h.asOf ? " · as of " + esc(h.asOf) : ""} · sorted by ${esc((PERIODS.find(([k]) => k === key) || [, "1D"])[1])}${dir > 0 ? " (lowest first)" : ""} · weight shown in the last column</td></tr>`;
 }
 const FLAGS_NOTE = 'Sorted by 1D by default. Click a column header to sort; click again to reverse, a third time to go back to 1D. Rates show changes in basis points. <span class="flag stale"></span> stale data · <span class="flag missing"></span> missing data.';
 const byTitle = (m, re) => m.tables.filter(t => re.test(t.title));
@@ -508,7 +569,7 @@ function setNameWidth(m){
   document.body.appendChild(box);
   const w = Math.max(...[...box.children].filter(e => e.tagName === "DIV").map(e => e.getBoundingClientRect().width));
   box.remove();
-  document.documentElement.style.setProperty("--namew", Math.ceil(w + 20 + 16) + "px");   // cell padding + room
+  document.documentElement.style.setProperty("--namew", Math.ceil(w + 20 + 16 + 22) + "px");   // cell padding + room + expand arrow
 }
 
 function renderSectors(m){
@@ -516,7 +577,8 @@ function renderSectors(m){
   if (!m){ host.innerHTML = '<div class="empty">No sector data in the latest export.</div>'; return; }
   host.innerHTML = "";
   perfSection(host, "sc", "Sectors", byTitle(m, /SECTOR/));
-  perfSection(host, "in", "Industries", byTitle(m, /INDUSTR/), FLAGS_NOTE);
+  const drawInd = perfSection(host, "in", "Industries", byTitle(m, /INDUSTR/), FLAGS_NOTE, false, true);
+  if (!HOLD) loadHoldings().then(() => { if (HOLD) drawInd(); });
 
   // ---- industry rotation ----
   host.insertAdjacentHTML("beforeend", `<section><h2>Industry rotation</h2><div class="grid2">${m.rotation.map(v => `<div><h3>${esc(v.label)}</h3><ul class="rot">${
