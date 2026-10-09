@@ -59,6 +59,14 @@ h3{font-size:14px;font-weight:600;margin:0 0 8px;color:var(--muted)}
 .chip.on{color:#1a1a1a;background:var(--accent);border-color:var(--accent);font-weight:600}
 input[type=search]{background:var(--panel);border:1px solid var(--line);color:var(--text);padding:6px 10px;border-radius:6px;font:inherit;margin-left:auto;width:200px}
 .toolbar:empty{display:none}
+/* performance tables: fixed column widths so Sectors, Industries and Market tables line up */
+.perf table{table-layout:fixed;min-width:1100px}
+.perf th:nth-child(2){width:90px}
+.perf th:nth-child(n+3):nth-child(-n+9){width:84px}
+.perf th:nth-child(10){width:140px}
+.perf th:nth-child(11){width:90px}
+.perf th:nth-child(12){width:110px}
+.perf td:first-child{overflow:hidden;text-overflow:ellipsis}
 .wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
 table{border-collapse:collapse;width:100%;font-size:13px}
 /* column headers: dark band, small spaced caps, amber underline on the sorted column */
@@ -388,7 +396,7 @@ function scaleFor(r, key){
 function perfSection(host, uid, title, tables, note, noGroup){
   host.insertAdjacentHTML("beforeend", `<section><h2>${esc(title)}</h2>
     <div class="toolbar" id="${uid}T"></div><div class="toolbar" id="${uid}G"></div>
-    <div class="wrap" id="${uid}P"></div>${note ? `<div class="note">${note}</div>` : ""}</section>`);
+    <div class="wrap perf" id="${uid}P"></div>${note ? `<div class="note">${note}</div>` : ""}</section>`);
   let tIdx = 0, group = "All";
   const nameCol = {key:"name", label:"Name", cls:"l", sort: r => r.name,
     render: r => `<span class="sym">${esc(r.name)}</span> <span class="tkr" style="font-size:12px;margin-left:4px">${esc(r.sym)}</span>${r.status !== "ok" ? `<span class="flag ${r.status}" title="${r.status} data"></span>` : ""}`};
@@ -405,7 +413,8 @@ function perfSection(host, uid, title, tables, note, noGroup){
     ]);
   // a table whose rows all share one group (Sectors) gets no Group column
   const allCols = cols, oneGroup = () => new Set(tables[tIdx].rows.map(r => r.group)).size < 2;
-  const colsNow = () => noGroup || oneGroup() ? allCols.filter(c => c.key !== "group") : allCols;
+  const blankGroup = {key:"group", label:"", cls:"l", render: () => "", sort: () => null};
+  const colsNow = () => noGroup || oneGroup() ? allCols.map(c => c.key === "group" ? blankGroup : c) : allCols;
   // default order: biggest 1D gain first (the fixed Volatility & rates table keeps its own order)
   const byD1 = (a, b) => (isNum(b.d1) ? b.d1 : -Infinity) - (isNum(a.d1) ? a.d1 : -Infinity);
   const rowsNow = () => { const t = tables[tIdx], rows = t.rows.filter(r => group === "All" || r.group === group);
