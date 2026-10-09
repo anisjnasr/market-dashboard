@@ -160,7 +160,24 @@ td.drill:hover{outline:1px solid var(--accent);outline-offset:-1px}
 .dr-card{border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:8px 10px;margin-bottom:8px}
 .dr-card h4{margin:0 0 7px;font-size:13px;display:flex;justify-content:space-between;gap:8px}
 .dr-card h4 span{color:var(--muted);font-weight:600}
-.dr-chips{display:flex;flex-wrap:wrap;gap:5px}
+.dr-tools{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 10px}
+.dr-col{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.dr-ind{border-bottom:1px solid var(--line)}
+.dr-ind:last-child{border-bottom:0}
+.dr-ind summary{list-style:none;display:grid;grid-template-columns:16px minmax(0,1fr) 40px 64px;gap:8px;align-items:center;padding:8px 12px;cursor:pointer;font-size:13px}
+.dr-ind summary::-webkit-details-marker{display:none}
+.dr-ind summary:hover{background:var(--panel2)}
+.dr-chev{color:var(--muted);transition:transform .15s;display:inline-block}
+.dr-ind[open] .dr-chev{transform:rotate(90deg);color:var(--accent)}
+.dr-name{font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dr-n{text-align:right;color:var(--muted);font-weight:700}
+.dr-avg{text-align:right;font-weight:700}
+.dr-list{list-style:none;margin:0;padding:2px 12px 8px 36px;background:#151619}
+.dr-list li{display:grid;grid-template-columns:1fr 64px;align-items:center;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px}
+.dr-list li:last-child{border-bottom:0}
+.dr-list li span{text-align:right;font-weight:600}
+.dr-list a.tkr{text-decoration:none;justify-self:start}
+.dr-list a.tkr:hover{text-decoration:underline}
 .tk{display:inline-flex;gap:6px;align-items:center;padding:3px 7px 3px 3px;border-radius:5px;font-size:12px;font-weight:700;text-decoration:none;color:var(--text);background:var(--panel2);border:1px solid var(--line)}
 .tk.up i{color:rgb(var(--up))} .tk.dn i{color:rgb(var(--dn))}
 .tk:hover{border-color:var(--tick)}
@@ -616,15 +633,18 @@ function drillSide(d, name, up){
   const items = (d.metrics[name] || []).map(([t, i, c]) => ({t, ind: d.industries[i] || "Ungrouped", c}));
   const groups = {};
   items.forEach(x => (groups[x.ind] = groups[x.ind] || []).push(x));
-  const cards = Object.keys(groups)
+  const pc = v => `${sign(v)}${v.toFixed(1)}%`;
+  const rows = Object.keys(groups)
     .sort((a, b) => groups[b].length - groups[a].length || a.localeCompare(b))
     .map(g => {
-      const list = groups[g].sort((a, b) => up ? b.c - a.c : a.c - b.c);
-      return `<div class="dr-card"><h4>${esc(g)} <span>${list.length}</span></h4><div class="dr-chips">${
-        list.map(x => `<a class="tk ${up ? "up" : "dn"}" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(x.t)}" target="_blank" rel="noopener"><b class="tkr">${esc(x.t)}</b><i>${sign(x.c)}${x.c.toFixed(1)}%</i></a>`).join("")
-      }</div></div>`;
+      const list = groups[g].sort((a, b) => b.c - a.c);              // descending % change
+      const avg = list.reduce((s, x) => s + x.c, 0) / list.length;
+      return `<details class="dr-ind"><summary><span class="dr-chev">▸</span><span class="dr-name">${esc(g)}</span>
+          <span class="dr-n">${list.length}</span><span class="dr-avg ${avg >= 0 ? "up" : "dn"}" title="Average move">${pc(avg)}</span></summary>
+        <ul class="dr-list">${list.map(x => `<li><a href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(x.t)}" target="_blank" rel="noopener" class="tkr">${esc(x.t)}</a>
+          <span class="${x.c >= 0 ? "up" : "dn"}">${pc(x.c)}</span></li>`).join("")}</ul></details>`;
     }).join("");
-  return {n: items.length, html: cards || '<div class="note">No stocks.</div>'};
+  return {n: items.length, html: rows ? `<div class="dr-col">${rows}</div>` : '<div class="note">No stocks.</div>'};
 }
 
 function closeDrill(){ const o = $("drillOv"); if (o) o.remove(); }
@@ -647,8 +667,13 @@ async function openDrill(date, metric){
     $("drillBody").innerHTML = `
       <div class="dr-lbl"><span class="up">${esc(a)} ${Math.round(L.n / tot * 100)}% (${L.n})</span><span class="dn">${esc(b)} ${Math.round(R.n / tot * 100)}% (${R.n})</span></div>
       <div class="dr-bar"><div style="width:${L.n / tot * 100}%;background:rgb(var(--up))"></div><div style="flex:1;background:rgb(var(--dn))"></div></div>
-      <div class="note" style="margin:0 0 10px">Grouped by industry, largest groups first. Each chip shows the ${DRILL_MOVE[a]} move; click a ticker to open its chart.</div>
+      <div class="dr-tools"><span class="note" style="margin:0">Industries by number of stocks · ${DRILL_MOVE[a]} move · click an industry to show its stocks, a ticker to open its chart</span><button class="btn" id="drillAll">Expand all</button></div>
       <div class="dr-cols"><div>${L.html}</div><div>${R.html}</div></div>`;
+    $("drillAll").onclick = () => {
+      const all = [...document.querySelectorAll("#drillBody details")], open = all.some(x => !x.open);
+      all.forEach(x => x.open = open);
+      $("drillAll").textContent = open ? "Collapse all" : "Expand all";
+    };
   } catch (e) {
     $("drillBody").textContent = "Could not load the stocks: " + e.message + ".";
   }
