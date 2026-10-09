@@ -156,6 +156,16 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .hot th{background:none;cursor:default;padding:4px 6px;font-size:11px}
 .hot td{padding:4px 6px}
 .hot .dot{color:#ff8a00}
+.ec-day{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
+.ec-row{display:grid;grid-template-columns:48px 10px minmax(0,1fr);gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.ec-row .t{color:var(--muted);font-variant-numeric:tabular-nums}
+.ec-row.past{opacity:.5}
+.ec-dot{display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle}
+.ec-dot.hi{background:rgb(var(--dn))} .ec-dot.md{background:#f0803c}
+.ec-ttl{color:var(--text)} .ec-ttl.fed{color:#7aa6e8;font-weight:600} .ec-ttl.politics{color:#b393e6;font-weight:600}
+.ec-fp{display:block;font-size:11.5px;color:var(--muted)}
+.ec-more summary{cursor:pointer;color:var(--muted);font-size:12px;margin-top:10px}
+.ec-more summary:hover{color:var(--accent)}
 .fp-err{border:1px solid rgba(var(--dn),.5);background:rgba(var(--dn),.1);border-radius:8px;padding:16px;margin-bottom:20px}
 @media (max-width:980px){.fp-grid{grid-template-columns:1fr}}
 @media (max-width:600px){.fp-list li{grid-template-columns:130px 1fr}.fp-list li .fp-txt,.fp-fig{grid-column:1 / -1}}
@@ -590,6 +600,35 @@ function renderSectors(m){
   }</ul></div>`).join("")}</div></section>`);
 }
 
+// ================= ECONOMIC CALENDAR (econ/calendar.json, built daily by econ_calendar.py) =================
+// US medium/high-impact events, shown in UAE time: today first, then the rest of the week.
+const GST = {timeZone: "Asia/Dubai"};
+function renderCalendar(){
+  fetch("econ/calendar.json?v=" + Date.now(), {cache: "no-store"}).then(r => r.ok ? r.json() : null).then(c => {
+    const host = $("fpCal"); if (!c || !host) return;
+    const today = todayUAE(), now = Date.now();
+    const days = {};
+    c.events.forEach(e => { const t = new Date(e.date);
+      const d = t.toLocaleDateString("en-CA", GST); (days[d] = days[d] || []).push(Object.assign({t}, e)); });
+    const row = e => {
+      const past = e.t.getTime() < now - 30 * 60000;
+      const fp = [e.forecast && `F ${esc(e.forecast)}`, e.previous && `P ${esc(e.previous)}`].filter(Boolean).join(" · ");
+      return `<div class="ec-row${past ? " past" : ""}"><span class="t">${e.t.toLocaleTimeString("en-GB", Object.assign({hour: "2-digit", minute: "2-digit"}, GST))}</span>
+        <span class="ec-dot ${e.impact === "High" ? "hi" : "md"}" title="${esc(e.impact)} impact"></span>
+        <span class="ec-txt"><span class="ec-ttl ${e.kind}">${esc(e.title)}</span>${fp ? `<span class="ec-fp">${fp}</span>` : ""}</span></div>`;
+    };
+    const todays = days[today] || [];
+    const later = Object.keys(days).filter(d => d > today).sort();
+    const nextDay = later[0];
+    host.innerHTML = `<div class="fp-h">US ECONOMIC CALENDAR <span style="font-weight:400">(GST)</span></div>
+      <div class="ec-day">Today</div>${todays.length ? todays.map(row).join("") : '<div class="note" style="margin:2px 0 8px">No medium or high-impact US events today.</div>'}
+      ${nextDay ? `<div class="ec-day">${esc(shortDay(nextDay))}</div>${days[nextDay].map(row).join("")}` : ""}
+      ${later.length > 1 ? `<details class="ec-more"><summary>Rest of the week</summary>${later.slice(1).map(d =>
+        `<div class="ec-day">${esc(shortDay(d))}</div>${days[d].map(row).join("")}`).join("")}</details>` : ""}
+      <div class="note" style="margin-top:6px"><span class="ec-dot hi"></span> high · <span class="ec-dot md"></span> medium · F forecast · P previous</div>`;
+  }).catch(() => {});
+}
+
 // ================= FRONT PAGE =================
 const CAT_COLOR = (() => {
   const fam = {
@@ -658,7 +697,7 @@ function renderFront(d){
       </div>
       <aside class="fp-side">
         ${earn ? `<section><div class="fp-h">EARNINGS · YOUR SHORTLIST</div>${earn}</section>` : ""}
-        ${evts ? `<section><div class="fp-h">ECONOMIC CALENDAR <span style="font-weight:400">(GST)</span></div>${evts}</section>` : ""}
+<section id="fpCal">${evts ? `<div class="fp-h">ECONOMIC CALENDAR <span style="font-weight:400">(GST)</span></div>${evts}` : ""}</section>
         ${fp.watch ? `<section><div class="fp-h">WHAT TO WATCH</div><div class="fp-watch">${esc(fp.watch)}</div></section>` : ""}
         <section><div class="fp-h">HOT STOCKS · X / REDDIT</div>${hotTbl}</section>
       </aside>
@@ -1086,7 +1125,7 @@ fetch("data.json?v=" + Date.now(), {cache: "no-store"})
   .then(d => {
     DATA = d;
     $("stamp").textContent = "Data published " + d.updatedText;
-    try { renderFront(d); } catch (e) { $("tab-front").innerHTML = `<div class="empty">Front Page could not be drawn: ${esc(e.message)}</div>`; }
+    try { renderFront(d); renderCalendar(); } catch (e) { $("tab-front").innerHTML = `<div class="empty">Front Page could not be drawn: ${esc(e.message)}</div>`; }
     try { if (d.market) setNameWidth(d.market); } catch (e) {}
     try { renderSectors(d.market); } catch (e) { $("tab-sectors").innerHTML = `<div class="empty">Sectors could not be drawn: ${esc(e.message)}</div>`; }
     try { renderES(d.esForecast); } catch (e) { $("tab-esvol").innerHTML = `<div class="empty">ES Forecast could not be drawn: ${esc(e.message)}</div>`; }
