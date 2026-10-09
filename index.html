@@ -88,8 +88,9 @@ tr.grp th.g2{background:#3b6fd4;color:#fff}
 td.wrapcell{white-space:normal;min-width:220px;max-width:420px}
 tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .sym{font-weight:700}
-.tkr{display:inline-block;color:var(--tick);font:700 12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:0 2px;white-space:nowrap;letter-spacing:.04em;text-transform:uppercase}
+.tkr{display:inline-block;color:var(--tick);font:700 14px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:0 2px;white-space:nowrap;letter-spacing:.04em;text-transform:uppercase}
 .tkr:empty{display:none}
+.fp-list .tkr,.fp-tks .tkr{font-size:15px}
 .nm{color:var(--muted);font-size:12px;margin-left:6px}
 .flag{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:6px;vertical-align:middle}
 .flag.stale{background:var(--accent)} .flag.missing{background:rgb(var(--dn))}
@@ -125,7 +126,7 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .fp-h{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.06em;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
 .fp-h.big{font-size:16px;color:#fff;letter-spacing:.1em;background:var(--panel);border:0;border-left:4px solid var(--accent);padding:7px 12px;margin:0 0 4px}
 .fp-list{list-style:none;margin:0 0 26px;padding:0}
-.fp-list li{display:grid;grid-template-columns:100px 120px minmax(0,1fr);gap:4px 10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.fp-list li{display:grid;grid-template-columns:130px 120px minmax(0,1fr);gap:4px 10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .fp-dir{font-size:14px;text-align:center;padding-top:2px}
 .fp-tag{font-size:12px;font-weight:700;letter-spacing:.03em;padding-top:3px}
 .fp-txt{font:16px/1.55 Charter,"Iowan Old Style",Georgia,serif;color:var(--text)}
@@ -145,7 +146,7 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .hot .dot{color:#ff8a00}
 .fp-err{border:1px solid rgba(var(--dn),.5);background:rgba(var(--dn),.1);border-radius:8px;padding:16px;margin-bottom:20px}
 @media (max-width:980px){.fp-grid{grid-template-columns:1fr}}
-@media (max-width:600px){.fp-list li{grid-template-columns:100px 1fr}.fp-list li .fp-txt,.fp-fig{grid-column:1 / -1}}
+@media (max-width:600px){.fp-list li{grid-template-columns:130px 1fr}.fp-list li .fp-txt,.fp-fig{grid-column:1 / -1}}
 /* ---- MM drill-down ---- */
 td.drill{cursor:pointer}
 td.drill:hover{outline:1px solid var(--accent);outline-offset:-1px}
@@ -400,7 +401,7 @@ function perfSection(host, uid, title, tables, note, noGroup){
     <div class="wrap perf" id="${uid}P"></div>${note ? `<div class="note">${note}</div>` : ""}</section>`);
   let tIdx = 0, group = "All";
   const nameCol = {key:"name", label:"Name", cls:"l", sort: r => r.name,
-    render: r => `<span class="sym">${esc(r.name)}</span> <span class="tkr" style="font-size:12px;margin-left:4px">${esc(r.sym)}</span>${r.status !== "ok" ? `<span class="flag ${r.status}" title="${r.status} data"></span>` : ""}`};
+    render: r => `<span class="sym">${esc(r.name)}</span> <span class="tkr" style="margin-left:4px">${esc(r.sym)}</span>${r.status !== "ok" ? `<span class="flag ${r.status}" title="${r.status} data"></span>` : ""}`};
   const cols = [nameCol, {key:"last", label:"Last", render: fmtLast}]
     .concat(PERIODS.map(([k, lbl]) => ({key:k, label:lbl,
       render: r => r.yield ? bps(r[k]) : pct(r[k]), heat: r => heat(r[k], scaleFor(r, k))})))
@@ -486,7 +487,7 @@ function setNameWidth(m){
   const box = document.createElement("div");
   box.style.cssText = "position:absolute;visibility:hidden;left:-9999px;top:0;white-space:nowrap;font-size:13px";
   box.innerHTML = m.tables.flatMap(t => t.rows).map(r =>
-    `<div style="display:inline-block"><span class="sym">${esc(r.name)}</span> <span class="tkr" style="font-size:12px;margin-left:4px">${esc(r.sym)}</span><span class="flag"></span></div><br>`).join("");
+    `<div style="display:inline-block"><span class="sym">${esc(r.name)}</span> <span class="tkr" style="margin-left:4px">${esc(r.sym)}</span><span class="flag"></span></div><br>`).join("");
   document.body.appendChild(box);
   const w = Math.max(...[...box.children].filter(e => e.tagName === "DIV").map(e => e.getBoundingClientRect().width));
   box.remove();
