@@ -895,7 +895,7 @@ function drawEarnings(){
   // days with no reports this week get no chip
   const dayChips = chip("day", "week", "Week", E.day === "week")
     + days.filter(day => count(day, "All")).map(day => chip("day", day, `${shortDay(day).split(" ")[0]} ${+day.slice(8)}`, E.day === day)).join("");
-  const sessChips = sessions.map(s => chip("sess", s, `${s} · ${count(E.day, s)}`, E.sess === s)).join("");
+  const sessChips = sessions.map(s => chip("sess", s, s, E.sess === s)).join("");
 
   // ---- main table: every $1bn+ name, by day, session, then largest first ----
   const rows = E.cal.filter(r => okDay(r, E.day) && okSess(r, E.sess))
