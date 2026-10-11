@@ -436,9 +436,9 @@ function scaleFor(r, key){
 // One performance block: table chips, optional group chips + search, sortable heat table
 function perfSection(host, uid, title, tables, note, noGroup, withHoldings){
   host.insertAdjacentHTML("beforeend", `<section><h2>${esc(title)}</h2>
-    <div class="toolbar" id="${uid}T"></div><div class="toolbar" id="${uid}G"></div>
+    <div class="toolbar" id="${uid}T"></div>
     <div class="wrap perf" id="${uid}P"></div>${note ? `<div class="note">${note}</div>` : ""}</section>`);
-  let tIdx = 0, group = "All";
+  let tIdx = 0;
   const open = new Set();                                   // ETFs whose holdings are shown
   const canOpen = r => withHoldings && HOLD && HOLD.etfs[r.sym];
   const nameCol = {key:"name", label:"Name", cls:"l", sort: r => r.name,
@@ -461,7 +461,7 @@ function perfSection(host, uid, title, tables, note, noGroup, withHoldings){
   const colsNow = () => noGroup || oneGroup() ? allCols.map(c => c.key === "group" ? blankGroup : c) : allCols;
   // default order: biggest 1D gain first (the fixed Volatility & rates table keeps its own order)
   const byD1 = (a, b) => (isNum(b.d1) ? b.d1 : -Infinity) - (isNum(a.d1) ? a.d1 : -Infinity);
-  const rowsNow = () => { const t = tables[tIdx], rows = t.rows.filter(r => group === "All" || r.group === group);
+  const rowsNow = () => { const t = tables[tIdx], rows = t.rows;
     return /VOLATILITY/i.test(t.title) ? rows : rows.slice().sort(byD1); };
   const draw = buildTable($(uid + "P"), colsNow, rowsNow, withHoldings ? {
     rowAttrs: r => open.has(r.sym) ? 'class="xp-open"' : "",
@@ -471,19 +471,12 @@ function perfSection(host, uid, title, tables, note, noGroup, withHoldings){
     const b = e.target.closest(".xp"); if (!b) return;
     const s = b.dataset.x; open.has(s) ? open.delete(s) : open.add(s); draw();
   });
-  function drawGroups(){
-    const groups = ["All", ...new Set(tables[tIdx].rows.map(r => r.group))];
-    $(uid + "G").innerHTML = (groups.length > 2 ? groups.map(g => `<button class="chip ${g === group ? "on" : ""}">${esc(g)}</button>`).join("") : "")
-;
-    $(uid + "G").querySelectorAll(".chip").forEach(b => b.onclick = () => { group = b.textContent; drawGroups(); draw(); });
-  }
   $(uid + "T").innerHTML = tables.length > 1 ? tables.map((t, i) => `<button class="chip ${i === 0 ? "on" : ""}" data-i="${i}">${esc(t.title.charAt(0) + t.title.slice(1).toLowerCase())}</button>`).join("") : "";
   $(uid + "T").querySelectorAll(".chip").forEach(b => b.onclick = () => {
-    tIdx = +b.dataset.i; group = "All";
+    tIdx = +b.dataset.i;
     $(uid + "T").querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === b));
-    drawGroups(); draw();
+    draw();
   });
-  drawGroups();
   return draw;
 }
 
@@ -535,22 +528,22 @@ function renderMarket(m){
   host.innerHTML = `<section><h2>Market gauges${/stale|missing/i.test(m.status || "") ? ` <small style="color:var(--accent)">${esc("Stale data: " + String(m.status).replace(/^Data as of:[^·]*·?\s*/i, "").replace(/^\d+\s+STALE:\s*/i, ""))}</small>` : ""}</h2><div class="snap" id="mTiles"></div></section>`;
 
   // ---- gauge cards: one row, fixed order, every card = title + 1M / 3M ----
-  const rel = {}; m.relative.rows.forEach(r => rel[r.label] = r);
-  const ri = m.relative.periods.indexOf("1M"), ri3 = m.relative.periods.indexOf("3M");
-  const fromRel = (label, flip) => { const r = rel[label]; if (!r) return null; const k = flip ? -1 : 1; return [r.vals[ri] * k, r.vals[ri3] * k]; };
-  const fromSyms = (a, b) => { const x = all[a], y = all[b]; return x && y && isNum(x.m1) && isNum(y.m1) ? [x.m1 - y.m1, x.m3 - y.m3] : null; };
+  // the A-vs-B pairs shared by the gauge cards and the relative performance table: A return minus B return
+  const PAIRS = [
+    ["SPY vs RSP",   "SPY",      "RSP"],
+    ["QQQ vs QQQE",  "QQQ",      "QQQE"],
+    ["MAGS vs QQQE", "MAGS",     "QQQE"],
+    ["SPY vs IWM",   "SPY",      "IWM"],
+    ["QQQ vs DIA",   "QQQ",      "DIA"],
+    ["USD vs Gold",  "DX-Y.NYB", "GC=F"]
+  ];
+  const spread = (a, b, k) => { const x = all[a], y = all[b]; return x && y && isNum(x[k]) && isNum(y[k]) ? x[k] - y[k] : null; };
+  const fromSyms = (a, b) => { const v = [spread(a, b, "m1"), spread(a, b, "m3")]; return v.every(isNum) ? v : null; };
   const vix = all["^VIX"], y2 = Object.values(all).find(r => r.name === "US 2Y"), y10 = Object.values(all).find(r => r.name === "US 10Y");
   const card = (title, sub, v, fmt, cls) => v ? `<div class="tile"><div class="k"><span>${title}</span>${sub ? `<span class="kv">${sub}</span>` : ""}</div>
       <div class="pair"><div><span>1M</span><b class="${cls(v[0])}">${fmt(v[0])}</b></div><div><span>3M</span><b class="${cls(v[1])}">${fmt(v[1])}</b></div></div></div>` : "";
   const ud = v => v >= 0 ? "up" : "dn";
-  let tiles = [
-    ["SPY vs RSP",  fromRel("RSP vs SPY", true)],
-    ["QQQ vs QQQE", fromRel("QQQE vs QQQ", true)],
-    ["MAGS vs QQQE", fromSyms("MAGS", "QQQE")],
-    ["SPY vs IWM",  fromRel("IWM vs SPY", true)],
-    ["QQQ vs DIA",  fromRel("QQQ vs DIA")],
-    ["USD vs Gold", fromRel("USD vs Gold")]
-  ].map(([t, v]) => card(t, "", v, pct, ud)).join("");
+  let tiles = PAIRS.map(([t, a, b]) => card(t, "", fromSyms(a, b), pct, ud)).join("");
   if (vix && isNum(vix.last)) tiles += card("VIX", vix.last.toFixed(2), [vix.m1, vix.m3], pct, v => v > 0 ? "dn" : "up");
   if (y2 && y10 && isNum(y2.last) && isNum(y10.last)){
     const sp = Math.round((y10.last - y2.last) * 100);
@@ -558,16 +551,18 @@ function renderMarket(m){
   }
   $("mTiles").innerHTML = tiles;
 
-  // ---- performance: macro assets and volatility & rates ----
-  perfSection(host, "mk", "Performance", byTitle(m, /MACRO|VOLATILITY/), FLAGS_NOTE, true);
+  // ---- performance: macro assets, then volatility & rates ----
+  perfSection(host, "mk", "Performance", byTitle(m, /MACRO/), "", true);
+  perfSection(host, "vr", "Volatility & rates", byTitle(m, /VOLATILITY/), "", true);
 
   // ---- relative performance ----
   host.insertAdjacentHTML("beforeend", `<section><h2>Relative performance <small>A minus B return</small></h2><div class="wrap" id="mRel"></div></section>`);
+  const relRows = PAIRS.map(([label, a, b]) => ({label, vals: PERIODS.map(([k]) => spread(a, b, k))}));
   const relCols = [{key:"label", label:"Pair", cls:"l", render: r => `<span class="sym">${esc(r.label)}</span>`}]
-    .concat(m.relative.periods.map((p, i) => ({key:"p" + i, label:p, sort: r => r.vals[i],
+    .concat(PERIODS.map(([, p], i) => ({key:"p" + i, label:p, sort: r => r.vals[i],
       render: r => pct(r.vals[i]), heat: r => heat(r.vals[i], m.relative.scale[i])})))
 ;
-  buildTable($("mRel"), relCols, () => m.relative.rows);
+  buildTable($("mRel"), relCols, () => relRows);
 }
 
 // Name column width: the longest "Name TICKER" across every performance table, plus a little room
