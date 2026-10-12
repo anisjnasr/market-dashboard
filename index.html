@@ -154,6 +154,8 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .fp-side section{margin-bottom:24px}
 .fp-row{display:flex;gap:12px;padding:5px 0;font-size:14px}
 .fp-row .t{color:var(--muted);width:72px;flex:none;font-size:13px}
+.fp-erow{align-items:baseline}
+.fp-erow .t{width:auto;min-width:104px;white-space:nowrap}
 .fp-watch{font:15px/1.5 Charter,"Iowan Old Style",Georgia,serif}
 .fp-watch.big{font-size:17px;line-height:1.55;color:#fff;padding:12px 2px 22px;margin-bottom:4px}
 .hot{width:100%;font-size:12.5px}
@@ -166,7 +168,8 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .ec-dot{display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle}
 .ec-dot.hi{background:rgb(var(--dn))} .ec-dot.md{background:#f0803c}
 .ec-ttl{color:#fff} .ec-ttl.fed{color:#7aa6e8;font-weight:600} .ec-ttl.politics{color:#b393e6;font-weight:600}
-.ec-fp{display:block;font-size:11.5px;color:#b5b7bd}
+.ec-txt{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.ec-fp{flex:none;font-size:11.5px;color:#b5b7bd;white-space:nowrap;text-align:right}
 .ec-more summary{cursor:pointer;color:var(--muted);font-size:12px;margin-top:10px}
 .ec-more summary:hover{color:var(--accent)}
 .fp-err{border:1px solid rgba(var(--dn),.5);background:rgba(var(--dn),.1);border-radius:8px;padding:16px;margin-bottom:20px}
@@ -518,10 +521,11 @@ function renderMarket(m){
   if (!m){ host.innerHTML = '<div class="empty">No Market data in the latest export.</div>'; return; }
   const all = {}; m.tables.forEach(t => t.rows.forEach(r => all[r.sym] = r));
 
-  host.innerHTML = `<section><h2>Market gauges${/stale|missing/i.test(m.status || "") ? ` <small style="color:var(--accent)">${esc("Stale data: " + String(m.status).replace(/^Data as of:[^·]*·?\s*/i, "").replace(/^\d+\s+STALE:\s*/i, ""))}</small>` : ""}</h2><div class="snap" id="mTiles"></div></section>`;
+  // a short warning only when some prices did not update
+  host.innerHTML = /stale|missing/i.test(m.status || "")
+    ? `<div class="fresh warn">${esc("Stale data: " + String(m.status).replace(/^Data as of:[^·]*·?\s*/i, "").replace(/^\d+\s+STALE:\s*/i, ""))}</div>` : "";
 
-  // ---- gauge cards: one row, fixed order, every card = title + 1M / 3M ----
-  // the A-vs-B pairs shared by the gauge cards and the relative performance table: A return minus B return
+  // the A-vs-B pairs of the relative performance table: A return minus B return
   const PAIRS = [
     ["SPY vs RSP",   "SPY",      "RSP"],
     ["QQQ vs QQQE",  "QQQ",      "QQQE"],
@@ -531,18 +535,6 @@ function renderMarket(m){
     ["USD vs Gold",  "DX-Y.NYB", "GC=F"]
   ];
   const spread = (a, b, k) => { const x = all[a], y = all[b]; return x && y && isNum(x[k]) && isNum(y[k]) ? x[k] - y[k] : null; };
-  const fromSyms = (a, b) => { const v = [spread(a, b, "m1"), spread(a, b, "m3")]; return v.every(isNum) ? v : null; };
-  const vix = all["^VIX"], y2 = Object.values(all).find(r => r.name === "US 2Y"), y10 = Object.values(all).find(r => r.name === "US 10Y");
-  const card = (title, sub, v, fmt, cls) => v ? `<div class="tile"><div class="k"><span>${title}</span>${sub ? `<span class="kv">${sub}</span>` : ""}</div>
-      <div class="pair"><div><span>1M</span><b class="${cls(v[0])}">${fmt(v[0])}</b></div><div><span>3M</span><b class="${cls(v[1])}">${fmt(v[1])}</b></div></div></div>` : "";
-  const ud = v => v >= 0 ? "up" : "dn";
-  let tiles = PAIRS.map(([t, a, b]) => card(t, "", fromSyms(a, b), pct, ud)).join("");
-  if (vix && isNum(vix.last)) tiles += card("VIX", vix.last.toFixed(2), [vix.m1, vix.m3], pct, v => v > 0 ? "dn" : "up");
-  if (y2 && y10 && isNum(y2.last) && isNum(y10.last)){
-    const sp = Math.round((y10.last - y2.last) * 100);
-    tiles += card("2Y–10Y", `${sign(sp)}${sp} bp`, [y10.m1 - y2.m1, y10.m3 - y2.m3], v => `${sign(v)}${Math.round(v)} bp`, ud);
-  }
-  $("mTiles").innerHTML = tiles;
 
   // ---- performance: macro assets, then volatility & rates ----
   perfSection(host, "mk", "Performance", byTitle(m, /MACRO/), "", true);
@@ -671,7 +663,7 @@ function renderFront(d){
       const tk = upcoming.filter(r => r.date === day && r.session === k).map(r => r.ticker);
       if (tk.length) groups.push({when: `${lbl} ${k}`, tickers: tk});
     }));
-  const earn = groups.map(g => `<div class="fp-row"><span class="t">${esc(g.when)}</span><span class="fp-tks">${g.tickers.map(t => `<span class="tkr">${esc(t)}</span>`).join("")}</span></div>`).join("");
+  const earn = groups.map(g => `<div class="fp-row fp-erow"><span class="t">${esc(g.when)}</span><span class="fp-tks">${g.tickers.map(t => `<span class="tkr">${esc(t)}</span>`).join("")}</span></div>`).join("");
   const evts = (fp.events || []).map(e => `<div class="fp-row"><span class="t">${esc(e.time || "––:––")}</span><span>${esc(e.label)}</span></div>`).join("");
 
   // Hot stocks: X and Reddit top 10 side by side, tickers only, in rank order
