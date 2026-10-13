@@ -583,6 +583,8 @@ function renderSectors(m){
 // ================= ECONOMIC CALENDAR (econ/calendar.json, built daily by econ_calendar.py) =================
 // US medium/high-impact events, shown in UAE time: today first, then the rest of the week.
 const GST = {timeZone: "Asia/Dubai"};
+// "Core CPI m/m" -> "Core CPI MoM", "y/y" -> "YoY", "q/q" -> "QoQ"
+const ecTitle = t => String(t || "").replace(/\bm\/m\b/gi, "MoM").replace(/\by\/y\b/gi, "YoY").replace(/\bq\/q\b/gi, "QoQ");
 function renderCalendar(){
   fetch("econ/calendar.json?v=" + Date.now(), {cache: "no-store"}).then(r => r.ok ? r.json() : null).then(c => {
     const host = $("fpCal"); if (!c || !host) return;
@@ -595,7 +597,7 @@ function renderCalendar(){
       const fp = [e.forecast && `F ${esc(e.forecast)}`, e.previous && `P ${esc(e.previous)}`].filter(Boolean).join(" · ");
       return `<div class="ec-row${past ? " past" : ""}"><span class="t">${e.t.toLocaleTimeString("en-GB", Object.assign({hour: "2-digit", minute: "2-digit"}, GST))}</span>
         <span class="ec-dot ${e.impact === "High" ? "hi" : "md"}" title="${esc(e.impact)} impact"></span>
-        <span class="ec-txt"><span class="ec-ttl ${e.kind}">${esc(e.title)}</span>${fp ? `<span class="ec-fp">${fp}</span>` : ""}</span></div>`;
+        <span class="ec-txt"><span class="ec-ttl ${e.kind}">${esc(ecTitle(e.title))}</span>${fp ? `<span class="ec-fp">${fp}</span>` : ""}</span></div>`;
     };
     const todays = days[today] || [];
     const later = Object.keys(days).filter(d => d > today).sort();
