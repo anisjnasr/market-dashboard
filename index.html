@@ -987,7 +987,7 @@ function renderES(es){
   host.innerHTML = `
     <section><h2>ES forecast <small>ES ${f2(es.close)} · ${esc(es.regime)}</small></h2>
       <div class="es-tiles">
-        <div class="tile"><div class="k">Potential range</div><div class="v">${R.typical}<span class="es-word">pts · ${esc(R.word)}</span></div><div class="s">${R.quiet} quiet — ${R.busy} busy</div></div>
+        <div class="tile"><div class="k">Potential range</div><div class="v">${R.typical}<span class="es-word">pts · ${esc(R.word)}</span></div><div class="s">${R.quiet} quiet — ${R.busy} busy</div>${es.event ? `<div class="s" style="color:var(--accent);font-weight:600">${esc(es.event.label)}${R.typicalBase ? ` · ${R.typicalBase} without it` : ""}</div>` : ""}</div>
         <div class="tile"><div class="k">Day type</div><div class="v" style="font-size:22px">${esc(es.dayType)}<span class="es-word">${esc(es.dayWord)}</span></div><div class="s">${Math.round((1 - es.trendRate) * 100)}% range · ${Math.round(es.trendRate * 100)}% trend</div></div>
         <div class="tile"><div class="k">Trend days · ${esc(es.regime)}</div><div class="v">${Math.round(es.trendRate * 100)}%</div><div class="s">all regimes ${Math.round(es.trendRateAll * 100)}%</div></div>
         <div class="tile"><div class="k">Anchor · prior close</div><div class="v">${f2(L.anchor)}</div><div class="s">last session ran ${f2(R.lastRange)} pts</div></div>
