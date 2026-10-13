@@ -585,6 +585,15 @@ function renderSectors(m){
 const GST = {timeZone: "Asia/Dubai"};
 // "Core CPI m/m" -> "Core CPI MoM", "y/y" -> "YoY", "q/q" -> "QoQ"
 const ecTitle = t => String(t || "").replace(/\bm\/m\b/gi, "MoM").replace(/\by\/y\b/gi, "YoY").replace(/\bq\/q\b/gi, "QoQ");
+// Fed = the FOMC itself and Fed officials speaking; regional Fed surveys
+// (Philly Fed, Empire, Richmond...) are ordinary data releases.
+const ecKind = t => {
+  t = String(t || "");
+  if (/\b(philly|philadelphia|empire|richmond|kansas city|dallas|chicago|ny|new york)\b.*\bfed\b|\bfed\b.*\b(index|survey|manufacturing|services)\b/i.test(t)) return "data";
+  if (/\bFOMC\b|federal funds|\bfed chair|\bfed (governor|vice chair|member)|\bfed\b.*\bspeaks\b|\bpowell\b|\bwarsh\b/i.test(t)) return "fed";
+  if (/\b(trump|president|white house|treasury sec)/i.test(t)) return "politics";
+  return "data";
+};
 function renderCalendar(){
   fetch("econ/calendar.json?v=" + Date.now(), {cache: "no-store"}).then(r => r.ok ? r.json() : null).then(c => {
     const host = $("fpCal"); if (!c || !host) return;
@@ -597,7 +606,7 @@ function renderCalendar(){
       const fp = [e.forecast && `F ${esc(e.forecast)}`, e.previous && `P ${esc(e.previous)}`].filter(Boolean).join(" · ");
       return `<div class="ec-row${past ? " past" : ""}"><span class="t">${e.t.toLocaleTimeString("en-GB", Object.assign({hour: "2-digit", minute: "2-digit"}, GST))}</span>
         <span class="ec-dot ${e.impact === "High" ? "hi" : "md"}" title="${esc(e.impact)} impact"></span>
-        <span class="ec-txt"><span class="ec-ttl ${e.kind}">${esc(ecTitle(e.title))}</span>${fp ? `<span class="ec-fp">${fp}</span>` : ""}</span></div>`;
+        <span class="ec-txt"><span class="ec-ttl ${ecKind(e.title)}">${esc(ecTitle(e.title))}</span>${fp ? `<span class="ec-fp">${fp}</span>` : ""}</span></div>`;
     };
     const todays = days[today] || [];
     const later = Object.keys(days).filter(d => d > today).sort();
