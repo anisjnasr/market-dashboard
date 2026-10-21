@@ -239,6 +239,7 @@ td.drill:hover{outline:1px solid var(--accent);outline-offset:-1px}
   <div class="hdr-r">
     <span class="stamp" id="stamp">Loading data…</span>
     <button class="btn" id="btnRefresh" title="Refresh this page's data">↻ Refresh</button>
+    <button class="btn" id="btnRefreshAll" title="Refresh every page">↻ Refresh all</button>
     <button class="btn" id="btnSettings" title="Connection settings" aria-label="Connection settings">⚙ <span class="conn" id="connState">Connect</span></button>
   </div>
 </header>
@@ -1084,7 +1085,7 @@ function watchFor(since, label){
   }, 30000);
 }
 async function startRefresh(what, label){
-  $("btnRefresh").disabled = true;
+  $("btnRefresh").disabled = $("btnRefreshAll").disabled = true;
   try {
     const res = await api({action: "refresh", what});
     if (!res.ok) throw new Error(res.error || "Refresh failed");
@@ -1092,7 +1093,7 @@ async function startRefresh(what, label){
     watchFor(res.requested, label);
   } catch (e) {
     status(e.message, true);
-    $("btnRefresh").disabled = false;
+    $("btnRefresh").disabled = $("btnRefreshAll").disabled = false;
     if (!LS.get("mmKey")) openSettings();
   }
 }
@@ -1129,12 +1130,13 @@ $("setSave").onclick = async () => {
   showConn();
 };
 $("setAll").onclick = () => { $("settings").hidden = true; startRefresh("all", "Full update"); };
+$("btnRefreshAll").onclick = () => startRefresh("all", "Full update");
 $("setForget").onclick = () => { LS.set("mmKey", ""); LS.set("mmUrl", ""); $("setKey").value = ""; $("setMsg").textContent = "Key removed from this device."; showConn(); };
 
 // resume watching if the page was reloaded mid-refresh
 try {
   const p = JSON.parse(sessionStorage.getItem("mmPending") || "null");
-  if (p){ status(p.label + " refresh in progress; this page reloads when new data arrives."); $("btnRefresh").disabled = true; watchFor(p.since, p.label); }
+  if (p){ status(p.label + " refresh in progress; this page reloads when new data arrives."); $("btnRefresh").disabled = $("btnRefreshAll").disabled = true; watchFor(p.since, p.label); }
 } catch (e) {}
 
 // ================= LOAD =================
