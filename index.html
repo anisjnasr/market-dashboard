@@ -725,7 +725,7 @@ function drillSide(d, name, up){
   const rows = Object.keys(groups)
     .sort((a, b) => groups[b].length - groups[a].length || a.localeCompare(b))
     .map(g => {
-      const list = groups[g].sort((a, b) => b.c - a.c);              // descending % change
+      const list = groups[g].sort((a, b) => up ? b.c - a.c : a.c - b.c); // up side: biggest gain first; down side: biggest loss first
       const avg = list.reduce((s, x) => s + x.c, 0) / list.length;
       return `<details class="dr-ind"><summary><span class="dr-chev">▸</span><span class="dr-name">${esc(g)}</span>
           <span class="dr-n">${list.length}</span><span class="dr-avg ${avg >= 0 ? "up" : "dn"}" title="Average move">${pc(avg)}</span></summary>
