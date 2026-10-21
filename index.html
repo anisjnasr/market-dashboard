@@ -468,7 +468,7 @@ function perfSection(host, uid, title, tables, note, noGroup, withHoldings){
     const b = e.target.closest(".xp"); if (!b) return;
     const s = b.dataset.x; open.has(s) ? open.delete(s) : open.add(s); draw();
   });
-  $(uid + "T").innerHTML = tables.length > 1 ? tables.map((t, i) => `<button class="chip ${i === 0 ? "on" : ""}" data-i="${i}">${esc(t.title.charAt(0) + t.title.slice(1).toLowerCase())}</button>`).join("") : "";
+  $(uid + "T").innerHTML = tables.length > 1 ? tables.map((t, i) => `<button class="chip ${i === 0 ? "on" : ""}" data-i="${i}">${esc(t.label || t.title.charAt(0) + t.title.slice(1).toLowerCase())}</button>`).join("") : "";
   $(uid + "T").querySelectorAll(".chip").forEach(b => b.onclick = () => {
     tIdx = +b.dataset.i;
     $(uid + "T").querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === b));
@@ -549,6 +549,17 @@ function renderMarket(m){
       render: r => pct(r.vals[i]), heat: r => heat(r.vals[i], m.relative.scale[i])})))
 ;
   buildTable($("mRel"), relCols, () => relRows);
+
+  // ---- countries: regional benchmarks, then country ETFs with one chip per region ----
+  const regional = byTitle(m, /REGIONAL/);
+  if (regional.length) perfSection(host, "rg", "Regional benchmarks", regional, "", true);
+  const country = byTitle(m, /COUNTRY/)[0];
+  if (country){
+    const regions = [...new Set(country.rows.map(r => r.group))];
+    const views = [{title: "ALL", label: "All", rows: country.rows}]
+      .concat(regions.map(g => ({title: g.toUpperCase(), label: g, rows: country.rows.filter(r => r.group === g)})));
+    perfSection(host, "ct", "Country ETFs", views, FLAGS_NOTE);
+  }
 }
 
 // Name column width: the longest "Name TICKER" across every performance table, plus a little room
