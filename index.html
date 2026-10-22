@@ -176,6 +176,52 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .fp-err{border:1px solid rgba(var(--dn),.5);background:rgba(var(--dn),.1);border-radius:8px;padding:16px;margin-bottom:20px}
 @media (max-width:980px){.fp-grid{grid-template-columns:1fr}}
 @media (max-width:600px){.fp-list li{grid-template-columns:130px 1fr}.fp-list li .fp-txt,.fp-fig{grid-column:1 / -1}}
+/* ---- Market Meters (MM page) ---- */
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px}
+@media (max-width:900px){.meters{grid-template-columns:1fr}}
+.meter{--mc:139,141,147;background:linear-gradient(135deg,rgba(var(--mc),.13),var(--panel) 55%);border:1px solid var(--line);border-left:4px solid rgb(var(--mc));border-radius:10px;padding:14px 16px 12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.m-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.m-k{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.m-d{font-size:12px;color:var(--muted)}
+.m-main{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.m-status{font-size:30px;font-weight:800;line-height:1.05;color:rgb(var(--mc));letter-spacing:-.01em}
+.m-score{font-size:22px;font-weight:700;color:var(--text)}
+.m-score small{font-size:12px;color:var(--muted);font-weight:600}
+.m-prev{font-size:12px;color:var(--muted);font-weight:600;margin-left:auto}
+.m-flags{display:flex;gap:6px;flex-wrap:wrap}
+.m-flag{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:5px;border:1px solid}
+.m-flag.wash{color:#ffcf70;background:rgba(224,168,75,.18);border-color:rgba(224,168,75,.6);animation:mpulse 2.4s ease-in-out infinite}
+.m-flag.hot{color:#ff9a8f;background:rgba(235,87,78,.16);border-color:rgba(235,87,78,.6);animation:mpulse 2.4s ease-in-out infinite}
+@keyframes mpulse{50%{box-shadow:0 0 0 4px rgba(224,168,75,.08)}}
+@media (prefers-reduced-motion:reduce){.m-flag{animation:none}}
+.m-gauge{position:relative;height:8px;display:grid;grid-template-columns:20fr 20fr 20fr 20fr 20fr;gap:2px;margin:4px 0 16px}
+.m-gauge i{display:block;border-radius:2px;opacity:.38}
+.m-gauge i.on{opacity:1}
+.m-gauge b{position:absolute;top:-4px;width:3px;height:16px;background:#fff;border-radius:2px;transform:translateX(-50%);box-shadow:0 0 0 2px var(--bg)}
+.m-gauge span{position:absolute;top:13px;font-size:10px;color:var(--muted);transform:translateX(-50%)}
+.m-groups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.m-g{background:rgba(0,0,0,.18);border:1px solid var(--line);border-radius:7px;padding:7px 9px}
+.m-g .gk{font-size:11px;color:var(--muted);font-weight:700;display:flex;justify-content:space-between}
+.m-g .gv{font-size:17px;font-weight:700;margin-top:2px}
+.m-g .gb{height:4px;background:var(--line);border-radius:2px;margin-top:6px;position:relative;overflow:hidden}
+.m-g .gb i{position:absolute;top:0;bottom:0}
+.m-g .gb::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--muted)}
+.m-hist{display:flex;gap:2px;align-items:center}
+.m-hist i{flex:1;height:10px;border-radius:1px;min-width:2px}
+.m-hist i:last-child{outline:1px solid #fff;outline-offset:1px}
+.m-hl{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:3px}
+.m-tog{background:none;border:0;color:var(--muted);font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0;align-self:flex-start}
+.m-tog:hover{color:var(--accent)}
+.m-det{display:none;border-top:1px solid var(--line);padding-top:10px;font-size:12.5px}
+.meter.open .m-det{display:block}
+.m-det table{border-collapse:collapse;width:100%}
+.m-det th{font-size:11px;color:var(--muted);font-weight:600;text-align:center;padding:3px 4px}
+.m-det th:first-child,.m-det td:first-child{text-align:left}
+.m-det td{padding:4px;text-align:center;border-top:1px solid rgba(255,255,255,.04)}
+.m-det .sec{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin:10px 0 4px}
+.m-det .sec:first-child{margin-top:0}
+.sig{font-weight:800}
+.sig.p{color:rgb(var(--up))} .sig.n{color:rgb(var(--dn))} .sig.z{color:var(--muted)}
 /* ---- MM drill-down ---- */
 td.drill{cursor:pointer}
 td.drill:hover{outline:1px solid var(--accent);outline-offset:-1px}
@@ -1049,9 +1095,80 @@ function socialCol(h, i, rows){
 }
 
 // ================= OTHER TABS =================
+// ================= MARKET METERS (MM page) =================
+// Built daily by market_meter.py in the market-monitor repo -> mm/meter.json.
+const METER_ORDER = ["Very Bearish", "Bearish", "Cautious", "Bullish", "Very Bullish"];
+const METER_RGB = {"Very Bearish": "235,87,78", "Bearish": "240,140,110", "Cautious": "224,168,75",
+                   "Bullish": "120,205,150", "Very Bullish": "46,190,120"};
+const meterStatus = s => s <= -60 ? "Very Bearish" : s < -20 ? "Bearish" : s <= 20 ? "Cautious" : s < 60 ? "Bullish" : "Very Bullish";
+const sgnTxt = v => (v > 0 ? "+" : "") + v;
+const sigCell = v => v > 0 ? '<span class="sig p">▲</span>' : v < 0 ? '<span class="sig n">▼</span>' : '<span class="sig z">–</span>';
+const fmtD = s => { const d = new Date(s + "T12:00:00Z"); return isNaN(d) ? s : d.toLocaleDateString("en-GB", {day: "numeric", month: "short"}); };
+
+function meterCard(key, label, j){
+  const m = j[key], st = m.status, rgb = METER_RGB[st] || "139,141,147";
+  const hist = j.history || [];
+  const prev = hist.length > 1 ? hist[hist.length - 2][key] : null;
+  const pos = (Math.max(-100, Math.min(100, m.score)) + 100) / 2;
+  const segs = METER_ORDER.map(s => `<i class="${s === st ? "on" : ""}" style="background:rgb(${METER_RGB[s]})" title="${s}"></i>`).join("");
+  const g = m.groups, GN = {trend: "Trend", breadth: "Breadth", vix: "VIX"};
+  const groups = ["trend", "breadth", "vix"].map(k => {
+    const v = g[k].score, w = Math.abs(v) / 2;
+    const bar = v >= 0 ? `left:50%;width:${w}%;background:rgb(var(--up))` : `right:50%;width:${w}%;background:rgb(var(--dn))`;
+    return `<div class="m-g"><div class="gk"><span>${GN[k]}</span><span>${Math.round(g[k].weight * 100)}%</span></div>
+      <div class="gv ${v > 0 ? "up" : v < 0 ? "dn" : ""}">${sgnTxt(v)}</div><div class="gb"><i style="${bar}"></i></div></div>`;
+  }).join("");
+  const flags = [];
+  if (j.flags && j.flags.washout) flags.push(`<span class="m-flag wash" title="T2108 below ${j.thresholds["T2108 flags"][0]}">⚑ Washout Potential</span>`);
+  if (j.flags && j.flags.overheating) flags.push(`<span class="m-flag hot" title="T2108 above ${j.thresholds["T2108 flags"][1]}">⚑ Market Overheating</span>`);
+  const strip = hist.map(h => { const s = meterStatus(h[key]);
+    return `<i style="background:rgb(${METER_RGB[s]})" title="${esc(h.date)}: ${s} (${sgnTxt(h[key])})"></i>`; }).join("");
+
+  // details: ETF trend grid + breadth / VIX checks with their values
+  const tr = m.checks.trend, etfs = [...new Set(tr.map(c => c.name.split(" ")[0]))];
+  const cks = [...new Set(tr.map(c => c.name.split(" ").slice(1).join(" ")))];
+  const trendTbl = `<table><tr><th></th>${cks.map(c => `<th>${esc(c.replace(/^> /, "Price > "))}</th>`).join("")}</tr>` +
+    etfs.map(e => `<tr><td><b class="tkr" style="color:var(--tick)">${e}</b></td>${cks.map(c => {
+      const x = tr.find(t => t.name === e + " " + c); return `<td>${x ? sigCell(x.signal) : ""}</td>`; }).join("")}</tr>`).join("") + "</table>";
+  const inp = j.inputs || {}, th = j.thresholds || {};
+  const valOf = n => n === "10D Ratio" ? `${inp["10D Ratio"]} <span class="neu">(&lt;${th["10D Ratio"][0]} / &gt;${th["10D Ratio"][1]})</span>`
+    : n === "T2108" ? `${inp.T2108} <span class="neu">(&lt;${th.T2108[0]} / &gt;${th.T2108[1]})</span>`
+    : n === "VIX" ? `${inp.VIX} <span class="neu">(&gt;${th.VIX[1]} / &lt;${th.VIX[0]})</span>`
+    : n.startsWith("W20%") ? `${inp["W20% Up"]} vs ${inp["W20% Down"]}`
+    : n.startsWith("Q25%") ? `${inp["Q25% Up"]} vs ${inp["Q25% Down"]}` : "";
+  const rows = list => `<table>${list.map(c => `<tr><td>${esc(c.name)}</td><td style="text-align:right">${valOf(c.name)}</td><td style="width:28px">${sigCell(c.signal)}</td></tr>`).join("")}</table>`;
+  const det = `<div class="sec">Trend</div>${trendTbl}<div class="sec">Breadth</div>${rows(m.checks.breadth)}<div class="sec">Volatility</div>${rows(m.checks.vix)}`;
+
+  return `<div class="meter" data-k="${key}" style="--mc:${rgb}">
+    <div class="m-head"><span class="m-k">${label}</span><span class="m-d">as of ${fmtD(j.date)}</span></div>
+    <div class="m-main"><span class="m-status">${esc(st)}</span><span class="m-score">${sgnTxt(m.score)} <small>/ 100</small></span>
+      ${prev != null ? `<span class="m-prev">prev ${sgnTxt(prev)} · ${meterStatus(prev)}</span>` : ""}</div>
+    ${flags.length ? `<div class="m-flags">${flags.join("")}</div>` : ""}
+    <div class="m-gauge">${segs}<b style="left:${pos}%"></b><span style="left:0;transform:none">−100</span><span style="left:50%">0</span><span style="left:100%;transform:translateX(-100%)">+100</span></div>
+    <div class="m-groups">${groups}</div>
+    ${hist.length ? `<div><div class="m-hist">${strip}</div><div class="m-hl"><span>${fmtD(hist[0].date)}</span><span>last ${hist.length} days</span><span>${fmtD(hist[hist.length - 1].date)}</span></div></div>` : ""}
+    <button class="m-tog" type="button">▸ Show checks</button>
+    <div class="m-det">${det}</div>
+  </div>`;
+}
+
+function renderMeters(host){
+  fetch("mm/meter.json?v=" + Date.now(), {cache: "no-store"}).then(r => r.ok ? r.json() : null).then(j => {
+    if (!j || !j.short || !j.long){ host.innerHTML = ""; return; }
+    host.innerHTML = meterCard("short", "Short-term Market Meter", j) + meterCard("long", "Long-term Market Meter", j);
+    let open = false; try { open = localStorage.getItem("meterOpen") === "1"; } catch (e) {}
+    const setOpen = o => host.querySelectorAll(".meter").forEach(c => {
+      c.classList.toggle("open", o); c.querySelector(".m-tog").textContent = (o ? "▾ Hide" : "▸ Show") + " checks"; });
+    setOpen(open);
+    host.onclick = e => { if (!e.target.closest(".m-tog")) return; open = !open; setOpen(open);
+      try { localStorage.setItem("meterOpen", open ? "1" : "0"); } catch (err) {} };
+  }).catch(() => { host.innerHTML = ""; });
+}
+
 function renderPlainTabs(d){
   const t = d.tabs || {};
-  $("tab-mm").innerHTML = "";
+  $("tab-mm").innerHTML = '<section class="meters" id="meters"></section>';
+  renderMeters($("meters"));
   renderPlainTab($("tab-mm"), "MM", t["MM"], {hideTitle: true, noSearch: true, drill: true});
 
 
