@@ -188,7 +188,7 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .mc-st,.mc-sc{font-size:21px;font-weight:800;color:rgb(var(--mc));line-height:1.1}
 .mc-flag{align-self:flex-start;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:4px;border:1px solid}
 .mc-flag.wash{color:#7fe0a8;background:rgba(46,190,120,.16);border-color:rgba(46,190,120,.6)}
-.mc-flag.hot{color:#ff9a8f;background:rgba(235,87,78,.16);border-color:rgba(235,87,78,.6)}
+.mc-flags{display:flex;gap:6px;flex-wrap:wrap}
 .mc-sub{display:flex;gap:6px;font-size:12px;color:var(--muted)}
 .mc-sub b{font-weight:700}
 .mc-sub .dot{opacity:.5}
@@ -1109,9 +1109,13 @@ function meterCard(key, label, j){
   const tr = m.checks.trend;
   const etfs = [...new Set(tr.map(c => c.name.split(" ")[0]))];
   const cks = [...new Set(tr.map(c => c.name.split(" ").slice(1).join(" ")))];
-  const f = j.flags || {}, th = j.thresholds || {}, fl = th["T2108 flags"] || [30, 75];
-  const flag = f.washout ? `<span class="mc-flag wash" title="T2108 below ${fl[0]}: potential buying opportunity">⚑ Washout Potential</span>` : "";
-  const inp = j.inputs || {};
+  const f = j.flags || {}, th = j.thresholds || {}, inp = j.inputs || {};
+  const washLvl = th["T2108 washout"] || 30, osLvl = th["Oversold SPY 5D %"] || -3;
+  const flags = [];
+  if (f.washout) flags.push(`<span class="mc-flag wash" title="T2108 below ${washLvl}: potential buying opportunity">⚑ Washout Potential</span>`);
+  if (key === "short" && f.oversold && isNum(inp["SPY 5D %"]))
+    flags.push(`<span class="mc-flag wash" title="SPY 5-day change at or below ${osLvl}%: bounce potential">⚑ Oversold · SPY ${inp["SPY 5D %"].toFixed(1).replace("-", "−")}% 5D</span>`);
+  const flag = flags.length ? `<div class="mc-flags">${flags.join("")}</div>` : "";
   const val = n => n === "10D Ratio" ? inp["10D Ratio"] : n === "T2108" ? inp.T2108 : n === "VIX" ? inp.VIX
     : n.startsWith("W20%") ? `${inp["W20% Up"]}/${inp["W20% Down"]}` : n.startsWith("Q25%") ? `${inp["Q25% Up"]}/${inp["Q25% Down"]}` : "";
   const rows = list => list.map(c => `<div class="mc-row"><span>${esc(c.name.replace(" Up vs Down", " Up/Down"))}</span><span class="v">${esc(val(c.name))}</span>${sigCell(c.signal)}</div>`).join("");
