@@ -681,13 +681,22 @@ function renderFront(d){
   // sidebar
   // Earnings from your shortlist: tickers only (figures live on the Earnings page)
   const groups = [];
-  if ((fp.reported || []).length) groups.push({when: "Reported", tickers: fp.reported});
-  const upcoming = earnData(d).short.filter(r => !r.reported);
-  [["Today", todayUAE()], ["Tomorrow", isoAdd(todayUAE(), 1)]].forEach(([lbl, day]) =>
+  const allShort = earnData(d).short;
+  const upcoming = allShort.filter(r => !r.reported);
+  // previous weekday (Monday looks back to Friday)
+  let yday = isoAdd(todayUAE(), -1);
+  while ([0, 6].includes(new Date(yday + "T12:00:00Z").getUTCDay())) yday = isoAdd(yday, -1);
+  const ydayLbl = isoAdd(todayUAE(), -1) === yday ? "Yesterday" : "Fri";
+  const shown = new Set();
+  [[ydayLbl, yday, allShort], ["Today", todayUAE(), upcoming], ["Tomorrow", isoAdd(todayUAE(), 1), upcoming]].forEach(([lbl, day, src]) =>
     Object.keys(SESS_ORDER).forEach(k => {
-      const tk = upcoming.filter(r => r.date === day && r.session === k).map(r => r.ticker);
+      const tk = src.filter(r => r.date === day && r.session === k).map(r => r.ticker);
+      tk.forEach(t => shown.add(t));
       if (tk.length) groups.push({when: `${lbl} ${k}`, tickers: tk});
     }));
+  // other recently reported names not already listed above
+  const rep = (fp.reported || []).filter(t => !shown.has(t));
+  if (rep.length) groups.unshift({when: "Reported", tickers: rep});
   const earn = groups.map(g => `<div class="fp-row fp-erow"><span class="t">${esc(g.when)}</span><span class="fp-tks">${g.tickers.map(t => `<span class="tkr">${esc(t)}</span>`).join("")}</span></div>`).join("");
   const evts = (fp.events || []).map(e => `<div class="fp-row"><span class="t">${esc(e.time || "––:––")}</span><span>${esc(e.label)}</span></div>`).join("");
 
