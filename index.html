@@ -135,6 +135,7 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .conn.on{color:rgb(var(--up))}
 .status{margin:0 22px 12px;padding:8px 12px;border-radius:6px;background:rgba(224,168,75,.14);color:var(--accent);font-size:13px}
 .status.err{background:rgba(var(--dn),.14);color:rgb(var(--dn))}
+.status.ok{background:rgba(var(--up),.14);color:rgb(var(--up))}
 .status:not([hidden]){display:flex;align-items:center;justify-content:space-between;gap:12px}
 .status-x{background:none;border:0;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:2px 4px;opacity:.75}
 .status-x:hover{opacity:1}
@@ -1184,8 +1185,10 @@ const LS = {
   set: (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} }
 };
 const apiUrl = () => LS.get("mmUrl") || (DATA && DATA.webApp) || "";
-function status(msg, err){
-  const el = $("status"); el.hidden = !msg; el.classList.toggle("err", !!err);
+// kind: true or "err" = red error, "ok" = green success, otherwise amber info
+function status(msg, kind){
+  const el = $("status"); el.hidden = !msg;
+  el.classList.toggle("err", kind === true || kind === "err"); el.classList.toggle("ok", kind === "ok");
   el.innerHTML = msg ? `<span>${esc(msg)}</span><button class="status-x" aria-label="Close" title="Close">✕</button>` : "";
   if (msg) el.querySelector(".status-x").onclick = () => status("");
 }
@@ -1204,7 +1207,11 @@ function watchFor(since, label){
   const timer = setInterval(async () => {
     try {
       const d = await (await fetch("data.json?v=" + Date.now(), {cache: "no-store"})).json();
-      if (new Date(d.updated) > new Date(since)){ clearInterval(timer); sessionStorage.removeItem("mmPending"); location.reload(); }
+      if (new Date(d.updated) > new Date(since)){
+        clearInterval(timer); sessionStorage.removeItem("mmPending");
+        sessionStorage.setItem("mmDone", JSON.stringify({label, updated: d.updatedText || ""}));
+        location.reload();
+      }
     } catch (e) {}
     if (Date.now() - t0 > 25 * 60000){
       clearInterval(timer); sessionStorage.removeItem("mmPending");
@@ -1260,6 +1267,15 @@ $("setSave").onclick = async () => {
 $("setAll").onclick = () => { $("settings").hidden = true; startRefresh("all", "Full update"); };
 $("btnRefreshAll").onclick = () => startRefresh("all", "Full update");
 $("setForget").onclick = () => { LS.set("mmKey", ""); LS.set("mmUrl", ""); $("setKey").value = ""; $("setMsg").textContent = "Key removed from this device."; showConn(); };
+
+// a refresh finished just before this reload: say so
+try {
+  const done = JSON.parse(sessionStorage.getItem("mmDone") || "null");
+  if (done){
+    sessionStorage.removeItem("mmDone");
+    status(`✓ ${done.label} refresh complete. ${done.updated ? "Data published " + done.updated + "." : "New data loaded."}`, "ok");
+  }
+} catch (e) {}
 
 // resume watching if the page was reloaded mid-refresh
 try {
