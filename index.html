@@ -97,6 +97,9 @@ tr.grp th.g2{background:#3b6fd4;color:#fff}
 .plain th.gs,.plain td.gs{border-left:3px solid rgba(232,237,245,.55)}
 .plain td{border-left:1px solid rgba(255,255,255,.05)}
 .plain td:first-child{border-left:0}
+.mmt th{letter-spacing:.04em;padding-left:8px;padding-right:8px}
+.mmt td{padding-left:8px;padding-right:8px}
+.mmt th .up,.mmt th .dn{font-size:10px}
 td.wrapcell{white-space:normal;min-width:220px;max-width:420px}
 tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .sym{font-weight:700}
@@ -347,7 +350,7 @@ function buildTable(host, colsIn, getRows, init){
         return (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y))) * st.dir; });
     }
     host.innerHTML = `<table><thead>${st.groupRow || ""}<tr>${cols.map(c =>
-      `<th class="${c.cls || ""} ${c.gs ? "gs" : ""} ${st.key === c.key ? "sorted" : ""}" data-k="${esc(c.key)}">${esc(c.label)}${st.key === c.key ? (st.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead>
+      `<th class="${c.cls || ""} ${c.gs ? "gs" : ""} ${st.key === c.key ? "sorted" : ""}" data-k="${esc(c.key)}"${c.head ? ` title="${esc(c.label)}"` : ""}>${c.head || esc(c.label)}${st.key === c.key ? (st.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead>
       <tbody>${rows.map(r => `<tr${st.rowAttrs ? " " + st.rowAttrs(r) : ""}>${cols.map(c =>
       `<td ${c.attrs ? c.attrs(r) : ""} class="${(c.tdcls ? c.tdcls(r) : (c.cls || "")) + (c.gs ? " gs" : "")}" style="${c.heat ? c.heat(r) : c.style ? c.style(r) : ""}">${c.render ? c.render(r) : esc(r[c.key])}</td>`).join("")}</tr>${st.after ? st.after(r, st, cols) : ""}`).join("")}</tbody></table>`;
     host.querySelectorAll("th[data-k]").forEach(th => th.onclick = () => {
@@ -421,6 +424,7 @@ function renderPlainTab(host, title, tab, opts){
     const drill = opts.drill && DRILL_PAIR[hdr] && dateCol >= 0;
     return {
       key: String(i), label: hdr, cls: numeric[i] ? "c" : "l",
+      head: opts.headLabel ? opts.headLabel(hdr) : null,
       attrs: drill ? r => `data-d="${esc(r.v[dateCol])}" data-m="${esc(hdr)}" title="Show the stocks"` : null,
       tdcls: r => (numeric[i] ? "c" : (String(r.d[i]).length > 60 ? "l wrapcell" : "l")) + (drill ? " drill" : ""),
       style: custom && custom.style ? custom.style : r => sheetStyle(r.bg[i], r.fg[i]),
@@ -449,7 +453,7 @@ function renderPlainTab(host, title, tab, opts){
   const count = opts.limit ? `top ${rows.length} of ${tab.total}` : `${tab.values.length} rows${more}`;
   host.insertAdjacentHTML("beforeend", `<section>${opts.hideTitle ? "" : `<h2>${esc(title)} <small>${count}</small></h2>`}
     ${opts.noSearch ? "" : `<div class="toolbar"><input type="search" id="${id}q" placeholder="Search ${esc(title)}"></div>`}
-    <div class="wrap plain" id="${id}"></div></section>`);
+    <div class="wrap plain${opts.cls ? " " + opts.cls : ""}" id="${id}"></div></section>`);
   let q = "";
   const draw = buildTable($(id), cols, () => rows.filter(r => !q || r.d.join(" ").toLowerCase().includes(q)), {groupRow});
   if (!opts.noSearch) $(id + "q").oninput = e => { q = e.target.value.trim().toLowerCase(); draw(); };
@@ -1158,11 +1162,25 @@ function renderMeters(host){
   }).catch(() => host.remove());
 }
 
+// Short MM column headers on the website only (the Sheet keeps the full names,
+// which the scripts rely on): Up / Down become coloured arrows, "Ratio" is dropped.
+// Hover a header to see its full name.
+function mmHead(h){
+  const UP = '<span class="up">▲</span>', DN = '<span class="dn">▼</span>';
+  let m;
+  if ((m = h.match(/^Up (.+)$/))) return esc(m[1]) + " " + UP;
+  if ((m = h.match(/^Down (.+)$/))) return esc(m[1]) + " " + DN;
+  if ((m = h.match(/^(.+) Up$/))) return esc(m[1]) + " " + UP;
+  if ((m = h.match(/^(.+) Down$/))) return esc(m[1]) + " " + DN;
+  if ((m = h.match(/^(.+) Ratio$/))) return esc(m[1]);
+  return null;
+}
+
 function renderPlainTabs(d){
   const t = d.tabs || {};
   $("tab-mm").innerHTML = '<section class="meters" id="meters"></section>';
   renderMeters($("meters"));
-  renderPlainTab($("tab-mm"), "MM", t["MM"], {hideTitle: true, noSearch: true, drill: true});
+  renderPlainTab($("tab-mm"), "MM", t["MM"], {hideTitle: true, noSearch: true, drill: true, cls: "mmt", headLabel: mmHead});
 
 
 }
