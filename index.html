@@ -950,15 +950,16 @@ function metricCells(r){
 }
 const METRIC_HEAD = `<th>Sales est</th><th>Sales act</th><th>Surp</th><th>EPS est</th><th>EPS act</th><th>Surp</th><th>Mkt cap</th>`;
 // Gap % = open vs prior close; G/R = close vs open, on the first session after the report
-const REACT_HEAD = `<th title="Open vs prior close, first session after the report">Gap %</th><th title="Close vs open on that session: green = buyers stepped in, red = sellers">G/R</th>`;
+const REACT_HEAD = `<th title="Open vs prior close, first session after the report">Gap %</th><th title="Close vs open on that session: green = buyers stepped in, red = sellers">G/R</th><th title="That session's range: low to high on a green day, high to low (negative) on a red day">Range</th>`;
 function reactCells(r){
   const x = r.react;
-  if (!x) return "<td></td><td></td>";
-  const pct = v => `<b class="${v >= 0 ? "up" : "dn"}">${sign(v)}${(v * 100).toFixed(1)}%</b>`;
+  if (!x) return "<td></td><td></td><td></td>";
+  const pct = v => `<b class="${v >= 0 ? "up" : "dn"}">${sign(v)}${(v * 100).toFixed(2)}%</b>`;
   const g = isNum(x.gap) ? pct(x.gap) : "";
   // close vs open; older saved results without it fall back to the G / R letter
   const gr = isNum(x.oc) ? pct(x.oc) : x.gr === "G" ? '<b class="up">G</b>' : x.gr === "R" ? '<b class="dn">R</b>' : "";
-  return `<td>${g}</td><td>${gr}</td>`;
+  const rng = isNum(x.rng) ? pct(x.rng) : "";
+  return `<td>${g}</td><td>${gr}</td><td>${rng}</td>`;
 }
 const bySchedule = (a, b) => (a.date ? 0 : 1) - (b.date ? 0 : 1) || a.date.localeCompare(b.date) ||
   (SESS_ORDER[a.session] ?? 9) - (SESS_ORDER[b.session] ?? 9);
