@@ -775,10 +775,12 @@ const asOfText = s => String(s || "").replace(/^Data as of:\s*/i, "");
 const DRILL_PAIR = {
   "Up 4%": ["Up 4%", "Down 4%"], "Down 4%": ["Up 4%", "Down 4%"], "Participation": ["Up 4%", "Down 4%"],
   "W20% Up": ["W20% Up", "W20% Down"], "W20% Down": ["W20% Up", "W20% Down"],
+  "M25% Up": ["M25% Up", "M25% Down"], "M25% Down": ["M25% Up", "M25% Down"],
   "Q25% Up": ["Q25% Up", "Q25% Down"], "Q25% Down": ["Q25% Up", "Q25% Down"],
   "NH21": ["NH21", "NL52W"], "NL52W": ["NH21", "NL52W"]
 };
 const DRILL_MOVE = {"Up 4%": "1-day", "Down 4%": "1-day", "W20% Up": "5-day", "W20% Down": "5-day",
+  "M25% Up": "21-day", "M25% Down": "21-day",
   "Q25% Up": "63-day", "Q25% Down": "63-day", "NH21": "1-day", "NL52W": "1-day"};
 const DRILL_NAME = {"NH21": "21-day new highs", "NL52W": "52-week new lows"};
 const drillCache = {};
@@ -1120,7 +1122,9 @@ function meterCard(key, label, j){
     flags.push(`<span class="mc-flag wash" title="SPY closed down ${inp["SPY down-range streak"] || 3} days in a row with an above-average daily range: next-day rebound potential">⚑ Rebound: 3 Down Days</span>`);
   const flag = flags.length ? `<div class="mc-flags">${flags.join("")}</div>` : "";
   const val = n => n === "10D Ratio" ? inp["10D Ratio"] : n === "T2108" ? inp.T2108 : n === "VIX" ? inp.VIX
-    : n.startsWith("W20%") ? `${inp["W20% Up"]}/${inp["W20% Down"]}` : n.startsWith("Q25%") ? `${inp["Q25% Up"]}/${inp["Q25% Down"]}` : "";
+    : n.startsWith("W20%") ? `${inp["W20% Up"]}/${inp["W20% Down"]}`
+    : n.startsWith("M25%") ? `${inp["M25% Up"]}/${inp["M25% Down"]}`
+    : n.startsWith("Q25%") ? `${inp["Q25% Up"]}/${inp["Q25% Down"]}` : "";
   const rows = list => list.map(c => `<div class="mc-row"><span>${esc(c.name.replace(" Up vs Down", " Up/Down"))}</span><span class="v">${esc(val(c.name))}</span>${sigCell(c.signal)}</div>`).join("");
   const H = (j.history || []).filter(h => isNum(h[key]));
   const hist = H.length ? `<div><div class="mc-hist">${H.map(h => { const s = meterStatus(h[key]);
