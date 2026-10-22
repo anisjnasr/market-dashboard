@@ -1110,8 +1110,7 @@ function meterCard(key, label, j){
   const etfs = [...new Set(tr.map(c => c.name.split(" ")[0]))];
   const cks = [...new Set(tr.map(c => c.name.split(" ").slice(1).join(" ")))];
   const f = j.flags || {}, th = j.thresholds || {}, fl = th["T2108 flags"] || [30, 75];
-  const flag = f.washout ? `<span class="mc-flag wash" title="T2108 below ${fl[0]}: potential buying opportunity">⚑ Washout Potential</span>`
-    : f.overheating ? `<span class="mc-flag hot" title="T2108 above ${fl[1]}">⚑ Overheating</span>` : "";
+  const flag = f.washout ? `<span class="mc-flag wash" title="T2108 below ${fl[0]}: potential buying opportunity">⚑ Washout Potential</span>` : "";
   const inp = j.inputs || {};
   const val = n => n === "10D Ratio" ? inp["10D Ratio"] : n === "T2108" ? inp.T2108 : n === "VIX" ? inp.VIX
     : n.startsWith("W20%") ? `${inp["W20% Up"]}/${inp["W20% Down"]}` : n.startsWith("Q25%") ? `${inp["Q25% Up"]}/${inp["Q25% Down"]}` : "";
