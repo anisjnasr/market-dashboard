@@ -192,6 +192,10 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .mc-sub{display:flex;gap:6px;font-size:12px;color:var(--muted)}
 .mc-sub b{font-weight:700}
 .mc-sub .dot{opacity:.5}
+.mc-hist{display:flex;gap:2px;margin-top:4px}
+.mc-hist i{flex:1;height:9px;border-radius:1px;min-width:2px}
+.mc-hist i:last-child{outline:1px solid #fff;outline-offset:1px}
+.mc-hl{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:2px}
 .mc-tog{display:flex;align-items:center;gap:6px;width:100%;background:none;border:0;border-top:1px solid var(--line);padding:6px 12px;color:var(--muted);font:inherit;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;text-align:left}
 .mc-tog:hover{color:var(--text);background:rgba(255,255,255,.02)}
 .mc-chev{display:inline-block;width:10px}
@@ -1090,6 +1094,7 @@ function socialCol(h, i, rows){
 // Built daily by market_meter.py in the market-monitor repo -> mm/meter.json.
 const METER_RGB = {"Very Bearish": "235,87,78", "Bearish": "240,140,110", "Cautious": "224,168,75",
                    "Bullish": "120,205,150", "Very Bullish": "46,190,120"};
+const meterStatus = s => s <= -60 ? "Very Bearish" : s < -20 ? "Bearish" : s <= 20 ? "Cautious" : s < 60 ? "Bullish" : "Very Bullish";
 const sgnTxt = v => (v > 0 ? "+" : "") + v;
 const sgCls = v => v > 0 ? "up" : v < 0 ? "dn" : "neu";
 const sigCell = v => v > 0 ? '<span class="sig p">▲</span>' : v < 0 ? '<span class="sig n">▼</span>' : '<span class="sig z">–</span>';
@@ -1111,6 +1116,10 @@ function meterCard(key, label, j){
   const val = n => n === "10D Ratio" ? inp["10D Ratio"] : n === "T2108" ? inp.T2108 : n === "VIX" ? inp.VIX
     : n.startsWith("W20%") ? `${inp["W20% Up"]}/${inp["W20% Down"]}` : n.startsWith("Q25%") ? `${inp["Q25% Up"]}/${inp["Q25% Down"]}` : "";
   const rows = list => list.map(c => `<div class="mc-row"><span>${esc(c.name.replace(" Up vs Down", " Up/Down"))}</span><span class="v">${esc(val(c.name))}</span>${sigCell(c.signal)}</div>`).join("");
+  const H = (j.history || []).filter(h => isNum(h[key]));
+  const hist = H.length ? `<div><div class="mc-hist">${H.map(h => { const s = meterStatus(h[key]);
+      return `<i style="background:rgb(${METER_RGB[s]})" title="${esc(fmtD(h.date))}: ${s} (${sgnTxt(h[key])})"></i>`; }).join("")}</div>
+    <div class="mc-hl"><span>${fmtD(H[0].date)}</span><span>last ${H.length} days</span><span>${fmtD(H[H.length - 1].date)}</span></div></div>` : "";
   const sub = (n, k) => `${n} <b class="${sgCls(g[k].score)}">${sgnTxt(g[k].score)}</b>`;
   return `<div class="mc" style="--mc:${rgb}">
     <div class="mc-top">
@@ -1118,6 +1127,7 @@ function meterCard(key, label, j){
       <div class="mc-m"><span class="mc-st">${esc(m.status)}</span><span class="mc-sc">${sgnTxt(m.score)}</span></div>
       ${flag}
       <div class="mc-sub">${sub("Trend", "trend")}<span class="dot">·</span>${sub("Breadth", "breadth")}<span class="dot">·</span>${sub("Vol", "vix")}</div>
+      ${hist}
     </div>
     <button class="mc-tog" type="button"><span class="mc-chev"></span>Indicators</button>
     <div class="mc-det">
