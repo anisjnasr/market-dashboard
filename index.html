@@ -924,6 +924,9 @@ function earnData(d){
     epsE: r["EPS Est"], epsA: r["EPS Act"], epsP: r["EPS Surp %"],
     reported: r["Reported"] === true || String(r["Reported"]).toUpperCase() === "TRUE"
   })).filter(r => r.ticker);
+  // reaction on the first full session after the report (Export.gs), once that session has closed
+  const react = d.earningsReaction || {};
+  short.forEach(r => { r.react = react[r.ticker + "|" + r.date] || null; });
   return {cal, short};
 }
 
@@ -946,6 +949,15 @@ function metricCells(r){
     <td>${eps(r.epsE)}</td><td>${eps(r.epsA)}</td><td>${surp(r.epsP)}</td><td>${money(r.cap, 1)}</td>`;
 }
 const METRIC_HEAD = `<th>Sales est</th><th>Sales act</th><th>Surp</th><th>EPS est</th><th>EPS act</th><th>Surp</th><th>Mkt cap</th>`;
+// Gap % = open vs prior close; G/R = close vs open, on the first session after the report
+const REACT_HEAD = `<th title="Open vs prior close, first session after the report">Gap %</th><th title="Green: closed at or above the open. Red: closed below it.">G/R</th>`;
+function reactCells(r){
+  const x = r.react;
+  if (!x) return "<td></td><td></td>";
+  const g = isNum(x.gap) ? `<b class="${x.gap >= 0 ? "up" : "dn"}">${sign(x.gap)}${(x.gap * 100).toFixed(1)}%</b>` : "";
+  const gr = x.gr === "G" ? '<b class="up">G</b>' : x.gr === "R" ? '<b class="dn">R</b>' : "";
+  return `<td>${g}</td><td>${gr}</td>`;
+}
 const bySchedule = (a, b) => (a.date ? 0 : 1) - (b.date ? 0 : 1) || a.date.localeCompare(b.date) ||
   (SESS_ORDER[a.session] ?? 9) - (SESS_ORDER[b.session] ?? 9);
 
@@ -955,11 +967,12 @@ function drawEarnings(){
   const dayCell = r => `<td class="l">${esc(shortDay(r.date))}</td><td class="l">${esc(r.session)}</td>`;
   const tkCell = r => `<td class="l"><span class="tkr">${esc(r.ticker)}</span><span class="co">${esc(r.company || "")}</span></td>`;
   const head = `<thead><tr><th class="l">Day</th><th class="l">Session</th><th class="l">Ticker</th>${METRIC_HEAD}<th></th></tr></thead>`;
+  const shortHead = `<thead><tr><th class="l">Day</th><th class="l">Session</th><th class="l">Ticker</th>${METRIC_HEAD}${REACT_HEAD}<th></th></tr></thead>`;
 
   // ---- shortlist: this week's names only ----
   const short = E.short.filter(inWeek).sort((a, b) => bySchedule(a, b) || a.ticker.localeCompare(b.ticker));
-  const shortHtml = short.length ? `<div class="wrap"><table class="ern">${head}<tbody>${
-    short.map(r => `<tr style="${r.date === today ? "background:rgba(224,168,75,.10)" : ""}">${dayCell(r)}${tkCell(r)}${metricCells(r)}
+  const shortHtml = short.length ? `<div class="wrap"><table class="ern">${shortHead}<tbody>${
+    short.map(r => `<tr style="${r.date === today ? "background:rgba(224,168,75,.10)" : ""}">${dayCell(r)}${tkCell(r)}${metricCells(r)}${reactCells(r)}
       <td><button class="ebtn rm" data-op="remove" data-t="${esc(r.ticker)}" title="Remove from shortlist">✕</button></td></tr>`).join("")
   }</tbody></table></div>` : '<div class="empty" style="padding:20px">No shortlisted names report this week. Add names from the calendar below with +.</div>';
 
