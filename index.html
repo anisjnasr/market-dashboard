@@ -125,6 +125,22 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .rot .placeholder{color:var(--muted);font-style:italic}
 .rot .nm{color:var(--text);font-size:13px}
 .rot .pc,.rot .pc.up,.rot .pc.dn{color:var(--text);font-weight:400;font-size:13px}
+.rot li.rot-go{cursor:pointer}
+.rot li.rot-go:hover{background:var(--panel2)}
+/* industry rotation constituents pop-up */
+.cx-box{width:min(1000px,100%)}
+.cx-sub{color:var(--muted);font-size:12.5px;margin:6px 0 12px}
+.cx-wrap{border:1px solid var(--line);border-radius:8px;overflow:auto;background:var(--panel)}
+.cx-t{width:100%;border-collapse:collapse;font-size:13px}
+.cx-t th,.cx-t td{padding:6px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.05)}
+.cx-t th{color:var(--muted);font-weight:600;font-size:12px;position:sticky;top:0;background:var(--panel);cursor:pointer;user-select:none}
+.cx-t th.l,.cx-t td.l{text-align:left}
+.cx-t th.on{color:var(--accent)}
+.cx-t td.nmc{max-width:260px;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.cx-t td.w{color:var(--muted)}
+.cx-t a.tkr{text-decoration:none;font-size:13px}
+.cx-t a.tkr:hover{text-decoration:underline}
+.cx-t tbody tr:hover td{background:var(--panel2)}
 /* ---- header controls / connection ---- */
 .hdr-r{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .btn{background:var(--panel);border:1px solid var(--line);color:var(--text);padding:5px 12px;border-radius:6px;cursor:pointer;font:inherit;font-size:13px}
@@ -629,7 +645,7 @@ function renderSectors(m){
   // ---- industry rotation (top of the page) ----
   host.insertAdjacentHTML("beforeend", `<section><h2>Industry rotation</h2><div class="grid2 rotg">${(m.rotation || []).map(v => `<div><h3>${esc(v.label)}</h3><ul class="rot">${
     v.items.map(it => it.sym
-      ? `<li><span class="nm2"><span class="tkr">${esc(it.sym)}</span><span class="nm">${esc(it.name)}</span></span>
+      ? `<li class="${HOLD && HOLD.etfs[it.sym] ? "rot-go" : ""}" data-sym="${esc(it.sym)}" data-per="${v.pctLabel === "3M" ? "m3" : "m1"}" title="Click to show constituents"><span class="nm2"><span class="tkr">${esc(it.sym)}</span><span class="nm">${esc(it.name)}</span></span>
          <span class="rk" title="Rank before → now">${esc(it.rank.replace("->", "→"))}</span>
          <span class="pc ${toneCls(it.tone)}" style="${heat(it.tone === "bad" ? -Math.abs(it.pct || 0) : Math.abs(it.pct || 0), v.pctLabel === "1M" ? .09 : .30)}">${pct(it.pct)}</span></li>`
       : `<li><span class="placeholder ${toneCls(it.tone)}">${esc(it.name)}</span></li>`).join("")
@@ -638,7 +654,47 @@ function renderSectors(m){
   // ---- performance tables ----
   perfSection(host, "sc", "Sectors", byTitle(m, /SECTOR/));
   const drawInd = perfSection(host, "in", "Industries", byTitle(m, /INDUSTR/), FLAGS_NOTE, false, true);
-  if (!HOLD) loadHoldings().then(() => { if (HOLD) drawInd(); });
+  const markRot = () => host.querySelectorAll(".rot li[data-sym]").forEach(li => li.classList.toggle("rot-go", !!(HOLD && HOLD.etfs[li.dataset.sym])));
+  host.querySelector(".rotg").addEventListener("click", e => {
+    const li = e.target.closest("li[data-sym]");
+    if (li && HOLD && HOLD.etfs[li.dataset.sym]) openConstituents(li.dataset.sym, li.querySelector(".nm").textContent, li.dataset.per);
+  });
+  if (!HOLD) loadHoldings().then(() => { if (HOLD){ drawInd(); markRot(); } }); else markRot();
+}
+
+// ---- Industry rotation pop-up: an ETF's constituents, sorted by the list's period (1M or 3M) ----
+function openConstituents(sym, name, key){
+  closeDrill();
+  const h = HOLD.etfs[sym]; if (!h) return;
+  let sk = key, sd = -1;                                   // sort key, direction (-1 = biggest first)
+  const cols = [["sym","Ticker","l"],["name","Name","l"],["weight","Weight",""]].concat(PERIODS.map(([k, p]) => [k, p, ""]));
+  document.body.insertAdjacentHTML("beforeend", `<div class="drill-ov" id="drillOv"><div class="drill-box cx-box" role="dialog" aria-modal="true">
+    <div class="dr-top"><h3><span class="tkr">${esc(sym)}</span> ${esc(name)} · constituents</h3>
+    <button class="btn" id="drillX" aria-label="Close">✕</button></div>
+    <div class="cx-sub" id="cxSub"></div><div class="cx-wrap"><table class="cx-t"><thead><tr>${
+      cols.map(([k, l, c]) => `<th class="${c}" data-k="${k}">${l}</th>`).join("")}</tr></thead><tbody id="cxBody"></tbody></table></div></div></div>`);
+  $("drillX").onclick = closeDrill;
+  $("drillOv").onclick = e => { if (e.target.id === "drillOv") closeDrill(); };
+  const draw = () => {
+    const rows = h.rows.slice().sort((a, b) => {
+      const x = a[sk], y = b[sk];
+      if (sk === "sym" || sk === "name") return String(x || "").localeCompare(String(y || "")) * sd;
+      if (!isNum(x) && !isNum(y)) return 0; if (!isNum(x)) return 1; if (!isNum(y)) return -1;
+      return (x - y) * sd;
+    });
+    $("cxBody").innerHTML = rows.map(r => `<tr><td class="l"><a class="tkr" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(r.sym)}" target="_blank" rel="noopener">${esc(r.sym)}</a></td>
+      <td class="l nmc" title="${esc(r.name)}">${esc(r.name)}</td><td class="w">${isNum(r.weight) ? r.weight.toFixed(1) + "%" : ""}</td>${
+      PERIODS.map(([k]) => `<td style="${heat(r[k], PCT_SCALE[k] * 2)}">${pct(r[k])}</td>`).join("")}</tr>`).join("");
+    document.querySelectorAll(".cx-t th").forEach(th => th.classList.toggle("on", th.dataset.k === sk));
+    const lbl = (cols.find(c => c[0] === sk) || [, sk])[1];
+    $("cxSub").textContent = `${rows.length} holdings${h.asOf ? " · as of " + h.asOf : ""} · sorted by ${lbl}${sd > 0 ? " (lowest first)" : ""} · click a column to sort, again to reverse · click a ticker to open its chart`;
+  };
+  document.querySelector(".cx-t thead").onclick = e => {
+    const th = e.target.closest("th"); if (!th) return;
+    if (th.dataset.k === sk) sd = -sd; else { sk = th.dataset.k; sd = (sk === "sym" || sk === "name") ? 1 : -1; }
+    draw();
+  };
+  draw();
 }
 
 // ================= ECONOMIC CALENDAR (econ/calendar.json, built daily by econ_calendar.py) =================
