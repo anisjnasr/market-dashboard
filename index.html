@@ -237,6 +237,10 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .mc-row .sig{text-align:center}
 .sig{font-weight:800;font-size:11px}
 .sig.p{color:rgb(var(--up))} .sig.n{color:rgb(var(--dn))} .sig.z{color:var(--muted)}
+.mc-flag.vix{color:#c9b8ff;background:rgba(167,139,250,.16);border-color:rgba(167,139,250,.6)}
+.mc-flag.info{color:var(--muted);background:rgba(255,255,255,.04);border-color:var(--line)}
+.mc-sc.days{font-size:15px;font-weight:700;color:var(--muted)}
+.mc-note{color:var(--muted);font-size:11px;line-height:1.45;margin-top:8px}
 /* ---- MM drill-down ---- */
 td.drill{cursor:pointer}
 td.drill:hover{outline:1px solid var(--accent);outline-offset:-1px}
@@ -1226,12 +1230,69 @@ function meterCard(key, label, j){
     </div></div>`;
 }
 
+// ================= SPY REGIME CARD (MM page) =================
+// Built daily by regime_grid.py in the market-monitor repo -> mm/regime.json.
+// Cash when SPY < 200SMA AND 20d vol > its median since 1993, OR VIX > VIX3M
+// for 3 closes in a row.
+const REGIME_RGB = {inv: "46,190,120", cash: "235,87,78", vix: "167,139,250"};
+const regimeRgb = (cash, reason) => !cash ? REGIME_RGB.inv : reason === "vix" ? REGIME_RGB.vix : REGIME_RGB.cash;
+const fmtDY = s => { const d = new Date(s + "T12:00:00Z"); return isNaN(d) ? s : d.toLocaleDateString("en-GB", {day: "numeric", month: "short", year: "numeric"}); };
+
+function regimeCard(j){
+  const cash = j.signal === "Cash", rgb = regimeRgb(cash, j.reason);
+  const i = j.inputs || {}, ru = j.rules || {}, need = ru.vix_days || 3, st = i.vix_streak || 0;
+  const num = (v, d = 1) => isNum(v) ? v.toFixed(d) : "–";
+  const pct = v => isNum(v) ? (v > 0 ? "+" : "") + v.toFixed(1) + "%" : "–";
+  const status = cash ? (j.reason === "vix" ? "Cash · VIX" : "Cash") : "Invested";
+  const flags = [];
+  if (st > 0 && st < need) flags.push(`<span class="mc-flag vix" title="VIX has closed above VIX3M ${st} day(s) in a row; the warning needs ${need}">⚑ VIX inverted ${st} of ${need} days</span>`);
+  if (st >= need) flags.push(`<span class="mc-flag vix" title="VIX has closed above VIX3M ${st} days in a row">⚑ VIX inverted ${st} days</span>`);
+  if (j.base_grid && j.base_grid !== j.signal) flags.push(`<span class="mc-flag info" title="The grid rule alone, without the VIX warning">Base grid: ${esc(j.base_grid)}</span>`);
+  const flag = flags.length ? `<div class="mc-flags">${flags.join("")}</div>` : "";
+  const H = j.history || [];
+  const hist = H.length ? `<div><div class="mc-hist">${H.map(h => {
+      const s = !h.cash ? "Invested" : h.reason === "vix" ? "Cash (VIX inverted)" : "Cash";
+      return `<i style="background:rgb(${regimeRgb(h.cash, h.reason)})" title="${esc(fmtD(h.date))}: ${s} · ${esc(h.state || "")}"></i>`; }).join("")}</div>
+    <div class="mc-hl"><span>${fmtD(H[0].date)}</span><span>last ${H.length} days</span><span>${fmtD(H[H.length - 1].date)}</span></div></div>` : "";
+  const trendCls = isNum(i.trend_pct) ? sgCls(i.trend_pct) : "neu";
+  const volCalm = isNum(i.vol20) && isNum(i.vol_median) && i.vol20 <= i.vol_median;
+  const inverted = isNum(i.ratio) && i.ratio > 1;
+  const row = (n, v, s, t) => `<div class="mc-row"${t ? ` title="${esc(t)}"` : ""}><span>${esc(n)}</span><span class="v">${esc(v)}</span>${s === null ? "<span></span>" : sigCell(s)}</div>`;
+  return `<div class="mc" style="--mc:${rgb}">
+    <div class="mc-top">
+      <div class="mc-h">SPY Regime<span class="d">${fmtD(j.date)}</span></div>
+      <div class="mc-m"><span class="mc-st">${status}</span><span class="mc-sc days" title="In this state since ${esc(fmtDY(j.since))}">${j.days_in_state}d</span></div>
+      ${flag}
+      <div class="mc-sub">Trend <b class="${trendCls}">${pct(i.trend_pct)}</b><span class="dot">·</span>Vol <b class="${volCalm ? "up" : "dn"}">${num(i.vol20)}/${num(i.vol_median)}</b><span class="dot">·</span>VIX <b class="${inverted ? "dn" : "up"}">${num(i.ratio, 2)}</b></div>
+      ${hist}
+    </div>
+    <button class="mc-tog" type="button"><span class="mc-chev"></span>Indicators</button>
+    <div class="mc-det">
+      <div class="sec">Grid</div>
+      ${row("Grid state", j.state || "–", null)}
+      ${row(`SPY vs ${ru.ma || 200}SMA`, `${num(i.SPY, 2)} / ${num(i.SMA200, 2)}`, isNum(i.trend_pct) ? Math.sign(i.trend_pct) : 0, "SPY close / 200-day simple moving average")}
+      ${row(`${ru.vol_len || 20}d vol vs median`, `${num(i.vol20)}% / ${num(i.vol_median)}%`, volCalm ? 1 : -1, "20-day realised volatility (annualised) vs its median since 1993")}
+      <div class="sec">VIX term structure</div>
+      ${row("VIX / VIX3M", `${num(i.VIX, 2)} / ${num(i.VIX3M, 2)}`, inverted ? -1 : 1, "Above 1.00 = inverted (stress)")}
+      ${row("Inverted days in a row", st >= need ? `${st} days` : `${st} of ${need}`, st >= need ? -1 : st > 0 ? 0 : 1)}
+      <div class="sec">Signal</div>
+      ${row(`Grid OR VIX (${need}d)`, j.signal, cash ? -1 : 1)}
+      ${row("Base grid", j.base_grid || "–", j.base_grid === "Cash" ? -1 : 1)}
+      ${row("Since", fmtDY(j.since), null)}
+      <div class="mc-note">Cash when SPY is below its ${ru.ma || 200}-day SMA and ${ru.vol_len || 20}-day volatility is above its median since 1993, or when VIX closes above VIX3M ${need} days in a row. Signals are set at the close and acted on the next session.</div>
+    </div></div>`;
+}
+
 function renderMeters(host){
-  fetch("mm/meter.json?v=" + Date.now(), {cache: "no-store"}).then(r => r.ok ? r.json() : null).then(j => {
-    if (!j || !j.short || !j.long){ host.remove(); return; }
-    host.innerHTML = meterCard("short", "Short-term", j) + meterCard("long", "Long-term", j);
+  const get = f => fetch(f + "?v=" + Date.now(), {cache: "no-store"}).then(r => r.ok ? r.json() : null).catch(() => null);
+  Promise.all([get("mm/meter.json"), get("mm/regime.json")]).then(([j, rg]) => {
+    let html = "";
+    if (j && j.short && j.long) html += meterCard("short", "Short-term", j) + meterCard("long", "Long-term", j);
+    if (rg && rg.signal) { try { html += regimeCard(rg); } catch (e) { console.warn("Regime card failed", e); } }
+    if (!html){ host.remove(); return; }
+    host.innerHTML = html;
     host.onclick = e => { if (e.target.closest(".mc-tog")) host.classList.toggle("open"); };   // collapsed by default
-  }).catch(() => host.remove());
+  });
 }
 
 // Short MM column headers on the website only (the Sheet keeps the full names,
