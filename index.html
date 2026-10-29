@@ -406,11 +406,12 @@ function sheetTone(hex){
   const strong = c.l <= 0.65;
   if (c.h >= 75 && c.h <= 165) return {k: (c.s >= 0.9 && c.l <= 0.6) ? "neon" : "up", strong};
   if (c.h < 20 || c.h >= 330) return {k: "dn", strong};
+  if (c.h < 45 && strong && c.s >= 0.9) return {k: "hot", strong};  // vivid orange (e.g. overheating)
   if (c.h < 70) return {k: "warn", strong};
   if (c.h >= 180 && c.h < 260) return {k: "info", strong};
   return null;
 }
-const TINT = {up: "46,190,120", dn: "235,87,78", warn: "224,168,75", info: "90,145,230"};
+const TINT = {up: "46,190,120", dn: "235,87,78", warn: "224,168,75", info: "90,145,230", hot: "245,120,30"};
 function sheetStyle(bg, fg){
   const t = sheetTone(bg);
   if (t){
