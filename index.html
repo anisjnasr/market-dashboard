@@ -1203,7 +1203,12 @@ function meterCard(key, label, j){
   if (key === "short" && f.rebound)
     flags.push(`<span class="mc-flag wash" title="SPY closed down ${inp["SPY down-range streak"] || 3} days in a row with an above-average daily range: next-day rebound potential">⚑ Rebound: 3 Down Days</span>`);
   const flag = flags.length ? `<div class="mc-flags">${flags.join("")}</div>` : "";
-  const val = n => n === "10D Ratio" ? inp["10D Ratio"] : n === ">50SMA" ? inp[">50SMA"] : n === ">200SMA" ? inp[">200SMA"] : n === "VIX" ? inp.VIX
+  const nf = (v, d = 2) => isNum(v) ? v.toFixed(d) : "–";
+  const val = n => n === "10D Ratio" ? inp["10D Ratio"] : n === ">50SMA" ? `${nf(inp[">50SMA"], 1)}%` : n === ">200SMA" ? `${nf(inp[">200SMA"], 1)}%` : n === "VIX" ? inp.VIX
+    : n === "VIX / VIX3M" ? `${nf(inp["VIX/VIX3M"])} (${nf(inp.VIX)}/${nf(inp.VIX3M)})`
+    : n === "VIX vs 10D avg" ? `${nf(inp.VIX)} / ${nf(inp["VIX 10D avg"])}`
+    : n === "VIX vs 50D avg" ? `${nf(inp.VIX)} / ${nf(inp["VIX 50D avg"])}`
+    : n === "VIX 1Y percentile" ? `${nf(inp.VIX)} · ${nf(inp["VIX 1Y pct"], 0)}th pct`
     : n.startsWith("W15%") ? `${inp["W15% Up"]}/${inp["W15% Down"]}`
     : n.startsWith("M25%") ? `${inp["M25% Up"]}/${inp["M25% Down"]}`
     : n.startsWith("Q25%") ? `${inp["Q25% Up"]}/${inp["Q25% Down"]}` : "";
@@ -1225,7 +1230,7 @@ function meterCard(key, label, j){
     <div class="mc-det">
       <div class="sec">Trend</div>
       <table><tr><th></th>${cks.map(c => { const sh = CK_SHORT[c] || c; return `<th title="${esc(CK_FULL[sh] || c)}">${esc(sh)}</th>`; }).join("")}</tr>
-        ${etfs.map(e => `<tr><td class="tkr">${esc(e)}</td>${cks.map(c => {
+        ${etfs.map(e => `<tr><td class="tkr"${e === "EW" ? ' title="Equal-weight index of the MM universe ($1bn+ stocks)"' : ""}>${esc(e)}</td>${cks.map(c => {
           const x = tr.find(t => t.name === e + " " + c); return `<td>${x ? sigCell(x.signal) : ""}</td>`; }).join("")}</tr>`).join("")}</table>
       <div class="sec">Breadth</div>${rows(m.checks.breadth)}
       <div class="sec">Volatility</div>${rows(m.checks.vix)}
@@ -1281,7 +1286,6 @@ function regimeCard(j){
       ${row(`Grid OR VIX (${need}d)`, j.signal, cash ? -1 : 1)}
       ${row("Base grid", j.base_grid || "–", j.base_grid === "Cash" ? -1 : 1)}
       ${row("Since", fmtDY(j.since), null)}
-      <div class="mc-note">Cash when SPY is below its ${ru.ma || 200}-day SMA and ${ru.vol_len || 20}-day volatility is above its median since 1993, or when VIX closes above VIX3M ${need} days in a row. Signals are set at the close and acted on the next session.</div>
     </div></div>`;
 }
 
