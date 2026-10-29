@@ -16,6 +16,8 @@ body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-a
 header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:16px 22px 10px}
 .brand{font-size:20px;font-weight:700;letter-spacing:-.01em}
 .stamp{color:var(--muted);font-size:13px}
+.stamp b{color:var(--text);font-weight:600}
+.stamp .late{color:var(--accent);font-weight:600}
 nav{display:flex;gap:4px;padding:0 22px;border-bottom:1px solid var(--line);overflow-x:auto;position:sticky;top:0;background:var(--bg);z-index:5}
 nav button{background:none;border:0;color:var(--muted);padding:10px 12px;font:inherit;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
 nav button:hover{color:var(--text)}
@@ -1318,12 +1320,84 @@ function renderPlainTabs(d){
 
 }
 
+
+// ================= PER-PAGE "UPDATED" STAMP =================
+// Each page has its own source and run time, so the header shows the stamp
+// for the page on screen: when it was last updated (GST) and the latest US
+// session its data covers. "behind" = an older session than expected
+// (US holidays are not known to this check).
+const MON3 = "JanFebMarAprMayJunJulAugSepOctNovDec";
+const DOW3 = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+function stParse(str){
+  const s = String(str || ""); let m, y, mo, d, tm = "";
+  if ((m = s.match(/(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}:\d{2}))?/))) { y = +m[1]; mo = +m[2]; d = +m[3]; tm = m[4] || ""; }
+  else if ((m = s.match(/(\d{1,2})-([A-Za-z]{3})-(\d{4})(?:\s+(\d{2}:\d{2}))?/))) { d = +m[1]; mo = MON3.indexOf(m[2][0].toUpperCase() + m[2].slice(1, 3).toLowerCase()) / 3 + 1; y = +m[3]; tm = m[4] || ""; }
+  else if ((m = s.match(/(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{2}:\d{2}))?/))) { d = +m[1]; mo = +m[2]; y = +m[3]; tm = m[4] || ""; }
+  else if ((m = s.match(/(\d{1,2}) ([A-Za-z]{3})(?: (\d{4}))?,? ?(\d{2}:\d{2})?/))) { d = +m[1]; mo = MON3.indexOf(m[2]) / 3 + 1; y = m[3] ? +m[3] : new Date().getFullYear(); tm = m[4] || ""; }
+  else return null;
+  if (!(mo >= 1)) return null;
+  return {iso: `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`, time: tm};
+}
+function stDay(iso){
+  const t = new Date(iso + "T12:00:00Z");
+  return `${DOW3[t.getUTCDay()]} ${t.getUTCDate()} ${MON3.substr(t.getUTCMonth() * 3, 3)}`;
+}
+// New York's UTC offset (hours) on a given date
+function nyOffset(iso){
+  const t = new Date(iso + "T12:00:00Z");
+  const ny = new Date(t.toLocaleString("en-US", {timeZone: "America/New_York"}));
+  const utc = new Date(t.toLocaleString("en-US", {timeZone: "UTC"}));
+  return Math.round((ny - utc) / 36e5);
+}
+// Latest US weekday session that should be on the page by now.
+// mm: released after New York midnight (+50 min for the job);
+// others: the 07:00 GST run, ready by 07:45 GST the next morning.
+function stExpected(kind){
+  const now = Date.now();
+  for (let back = 0; back < 10; back++){
+    const t = new Date(now - back * 864e5);
+    const iso = t.toISOString().slice(0, 10);
+    const dow = new Date(iso + "T12:00:00Z").getUTCDay();
+    if (dow === 0 || dow === 6) continue;
+    const next = new Date(new Date(iso + "T00:00:00Z").getTime() + 864e5);
+    const ready = kind === "mm"
+      ? next.getTime() - nyOffset(iso) * 36e5 + 50 * 6e4     // 00:00 NY + 50 min
+      : next.getTime() + (7.75 - 4) * 36e5;                   // 07:45 GST
+    if (ready <= now) return iso;
+  }
+  return "";
+}
+function pageStamp(tab){
+  const d = DATA || {}, m = d.market || {}, es = d.esForecast || {}, fp = d.frontPage || {};
+  let upd = "", data = "", kind = "day";
+  if (tab === "front"){ upd = fp.startedText; }
+  else if (tab === "mm"){
+    const mm = (d.tabs || {}).MM || {};
+    upd = ((mm.groups || [])[0] || "").replace(/^Updated\s*/i, "");
+    data = ((mm.display || [])[0] || [])[0] || "";
+    kind = "mm";
+  }
+  else if (tab === "market" || tab === "sectors"){ upd = updText(m.updatedText); data = String(m.status || "").replace(/^Data as of:\s*/i, ""); }
+  else if (tab === "earnings"){ upd = d.earningsUpdated; }
+  else if (tab === "esvol"){ upd = es.updatedText; data = es.asOf || es.asOfText; }
+
+  const u = stParse(upd), dt = stParse(data);
+  let html = "Updated: " + (u ? `<b>${stDay(u.iso)}${u.time ? ", " + u.time + " GST" : ""}</b>` : "<b>unknown</b>");
+  if (dt){
+    const want = stExpected(kind);
+    const behind = want && dt.iso < want;
+    html += ` · Data: <b>${stDay(dt.iso)}</b>` + (behind ? ` <span class="late" title="Expected the ${esc(stDay(want))} session">· behind</span>` : "");
+  }
+  $("stamp").innerHTML = html;
+}
+
 // ================= TABS =================
 const TAB_WHAT = {front: "front", mm: "mm", market: "market", sectors: "market", esvol: "es", earnings: "earnings"};
 function showTab(t){
   if (!$("tab-" + t)) t = "front";
   document.querySelectorAll("nav button").forEach(x => x.classList.toggle("active", x.dataset.tab === t));
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("show", x.id === "tab-" + t));
+  try { if (DATA) pageStamp(t); } catch (e) {}   // DATA is not loaded yet on the first call
 }
 const currentTab = () => (document.querySelector("nav button.active") || {dataset: {tab: "front"}}).dataset.tab;
 $("nav").onclick = e => {
@@ -1428,7 +1502,7 @@ try {
   const done = JSON.parse(sessionStorage.getItem("mmDone") || "null");
   if (done){
     sessionStorage.removeItem("mmDone");
-    status(`✓ ${done.label} refresh complete. ${done.updated ? "Data published " + done.updated + "." : "New data loaded."}`, "ok");
+    status(`✓ ${done.label} refresh complete. New data loaded.`, "ok");
   }
 } catch (e) {}
 
@@ -1443,7 +1517,7 @@ fetch("data.json?v=" + Date.now(), {cache: "no-store"})
   .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
   .then(d => {
     DATA = d;
-    $("stamp").textContent = "Data published " + d.updatedText;
+    try { pageStamp(currentTab()); } catch (e) { $("stamp").textContent = ""; }
     try { renderFront(d); renderCalendar(); } catch (e) { $("tab-front").innerHTML = `<div class="empty">Front Page could not be drawn: ${esc(e.message)}</div>`; }
     try { if (d.market) setNameWidth(d.market); } catch (e) {}
     try { renderSectors(d.market); } catch (e) { $("tab-sectors").innerHTML = `<div class="empty">Sectors could not be drawn: ${esc(e.message)}</div>`; }
