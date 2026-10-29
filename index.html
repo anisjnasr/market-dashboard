@@ -1195,15 +1195,15 @@ function meterCard(key, label, j){
   const etfs = [...new Set(tr.map(c => c.name.split(" ")[0]))];
   const cks = [...new Set(tr.map(c => c.name.split(" ").slice(1).join(" ")))];
   const f = j.flags || {}, th = j.thresholds || {}, inp = j.inputs || {};
-  const washLvl = th["T2108 washout"] || 30, osLvl = th["Oversold SPY 5D %"] || -3;
+  const washLvl = th[">50SMA washout"] || 25, osLvl = th["Oversold SPY 5D %"] || -3;
   const flags = [];
-  if (f.washout) flags.push(`<span class="mc-flag wash" title="T2108 below ${washLvl}: potential buying opportunity">⚑ Washout Potential</span>`);
+  if (f.washout) flags.push(`<span class="mc-flag wash" title="Stocks above 50SMA at or below ${washLvl}%: potential buying opportunity">⚑ Washout Potential</span>`);
   if (key === "short" && f.oversold && isNum(inp["SPY 5D %"]))
     flags.push(`<span class="mc-flag wash" title="SPY 5-day change at or below ${osLvl}%: bounce potential">⚑ Oversold · SPY ${inp["SPY 5D %"].toFixed(1).replace("-", "−")}% 5D</span>`);
   if (key === "short" && f.rebound)
     flags.push(`<span class="mc-flag wash" title="SPY closed down ${inp["SPY down-range streak"] || 3} days in a row with an above-average daily range: next-day rebound potential">⚑ Rebound: 3 Down Days</span>`);
   const flag = flags.length ? `<div class="mc-flags">${flags.join("")}</div>` : "";
-  const val = n => n === "10D Ratio" ? inp["10D Ratio"] : n === "T2108" ? inp.T2108 : n === "VIX" ? inp.VIX
+  const val = n => n === "10D Ratio" ? inp["10D Ratio"] : n === ">50SMA" ? inp[">50SMA"] : n === ">200SMA" ? inp[">200SMA"] : n === "VIX" ? inp.VIX
     : n.startsWith("W15%") ? `${inp["W15% Up"]}/${inp["W15% Down"]}`
     : n.startsWith("M25%") ? `${inp["M25% Up"]}/${inp["M25% Down"]}`
     : n.startsWith("Q25%") ? `${inp["Q25% Up"]}/${inp["Q25% Down"]}` : "";
