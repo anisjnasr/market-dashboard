@@ -736,11 +736,10 @@ function renderCalendar(){
     const later = Object.keys(days).filter(d => d > today).sort();
     const nextDay = later[0];
     host.innerHTML = `<div class="fp-h">US ECONOMIC CALENDAR <span style="font-weight:400">(GST)</span></div>
-      <div class="ec-day">Today</div>${todays.length ? todays.map(row).join("") : '<div class="note" style="margin:2px 0 8px">No medium or high-impact US events today.</div>'}
+      <div class="ec-day">Today</div>${todays.length ? todays.map(row).join("") : '<div class="note" style="margin:2px 0 8px">No events.</div>'}
       ${nextDay ? `<div class="ec-day">${esc(shortDay(nextDay))}</div>${days[nextDay].map(row).join("")}` : ""}
       ${later.length > 1 ? `<details class="ec-more"><summary>Rest of the week</summary>${later.slice(1).map(d =>
-        `<div class="ec-day">${esc(shortDay(d))}</div>${days[d].map(row).join("")}`).join("")}</details>` : ""}
-      <div class="note" style="margin-top:6px"><span class="ec-dot hi"></span> high · <span class="ec-dot md"></span> medium · F forecast · P previous</div>`;
+        `<div class="ec-day">${esc(shortDay(d))}</div>${days[d].map(row).join("")}`).join("")}</details>` : ""}`;
   }).catch(() => {});
 }
 
