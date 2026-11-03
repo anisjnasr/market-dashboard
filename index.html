@@ -288,15 +288,6 @@ td.drill:hover{outline:1px solid var(--accent);outline-offset:-1px}
 .ebtn.on{border-color:rgba(var(--up),.6);color:rgb(var(--up))}
 .ebtn.rm:hover,.ebtn.on:hover{border-color:rgb(var(--dn));color:rgb(var(--dn))}
 .ebtn:disabled{opacity:.4;cursor:default}
-/* ---- ES Forecast ---- */
-.es-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:24px}
-.es-tiles .tile .v{font-size:28px}
-.es-word{color:var(--accent);font-weight:700;font-size:13px;margin-left:6px}
-.es-levels{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:28px;align-items:start}
-.es-ladder td{padding:6px 10px}
-.es-ladder .lv{font-size:17px;font-weight:700}
-.es-note{color:var(--muted);font-size:13px;line-height:1.5;margin:10px 0 0}
-@media (max-width:820px){.es-levels{grid-template-columns:1fr}}
 @media (max-width:820px){.grid2,.grid2.rotg{grid-template-columns:1fr}.tile.big{grid-column:span 1}input[type=search]{margin-left:0;width:100%}}
 </style>
 </head>
@@ -331,7 +322,6 @@ td.drill:hover{outline:1px solid var(--accent);outline-offset:-1px}
   <button data-tab="market">Market</button>
   <button data-tab="sectors">Sectors &amp; Industries</button>
   <button data-tab="earnings">Earnings</button>
-  <button data-tab="esvol">ES Forecast</button>
 </nav>
 
 <main>
@@ -340,7 +330,6 @@ td.drill:hover{outline:1px solid var(--accent);outline-offset:-1px}
   <div class="tab" id="tab-mm"></div>
   <div class="tab" id="tab-earnings"></div>
   <div class="tab" id="tab-sectors"></div>
-  <div class="tab" id="tab-esvol"></div>
 </main>
 
 <script>
@@ -1119,55 +1108,6 @@ $("tab-earnings").addEventListener("click", async e => {
   }
 });
 
-// ================= ES FORECAST =================
-function renderES(es){
-  const host = $("tab-esvol");
-  if (!es){ host.innerHTML = '<div class="empty">No ES Forecast in the latest export yet.<br>In the Sheet run <b>Market Dashboard → ES Forecast refresh</b>, then <b>Market Dashboard → Dashboard publish</b>.</div>'; return; }
-  const L = es.levels, R = es.range, f0 = v => isNum(v) ? v.toLocaleString("en-US", {maximumFractionDigits: 0}) : esc(v);
-  const f2 = v => isNum(v) ? v.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2}) : esc(v);
-  const COL = {Typical: "#7aa6e8", Busy: "#4cc3bb", Outlier: "#b393e6"};
-
-  // candles: one bar per scenario, drawn to scale around the prior close
-  const out = L.rows.find(r => r.name === "Outlier") || L.rows[L.rows.length - 1];
-  const top = out.high, bot = out.low, H = 300, pad = 14, y = v => pad + (top - v) / (top - bot || 1) * (H - 2 * pad);
-  const bars = L.rows.map((r, i) => {
-    const x = 70 + i * 70;
-    return `<rect x="${x}" y="${y(r.high)}" width="34" height="${y(r.low) - y(r.high)}" rx="3" fill="${COL[r.name]}" opacity="${0.95 - i * 0.2}"/>
-      <text x="${x + 17}" y="${H + 16}" text-anchor="middle" fill="${COL[r.name]}" font-size="12" font-weight="700">${r.name}</text>
-      <text x="${x + 17}" y="${H + 32}" text-anchor="middle" fill="#8b8d93" font-size="11">${r.pts} pts</text>`;
-  }).join("");
-  const svg = `<svg viewBox="0 0 290 ${H + 40}" width="100%" style="max-width:300px">
-    ${bars}<line x1="56" x2="290" y1="${y(L.anchor)}" y2="${y(L.anchor)}" stroke="#e6e6e6" stroke-width="2"/>
-    <text x="52" y="${y(L.anchor) + 4}" text-anchor="end" fill="#e6e6e6" font-size="11" font-weight="700">${f0(L.anchor)}</text></svg>`;
-
-  const lvl = (r, side) => { const v = side === "hi" ? r.high : r.low;
-    return `<tr><td class="l" style="color:${COL[r.name]}">${r.name}</td><td class="lv">${f0(v)}</td><td>${Math.round(r.prob * 100)}%</td><td class="neu">${sign(v - L.anchor)}${f0(v - L.anchor)}</td></tr>`; };
-  const ladder = `<table class="es-ladder"><thead><tr><th class="l">Highs</th><th>Level</th><th>Chance</th><th>vs close</th></tr></thead><tbody>
-      ${L.rows.slice().reverse().map(r => lvl(r, "hi")).join("")}
-      <tr><td class="l"><b>Anchor</b></td><td class="lv">${f2(L.anchor)}</td><td colspan="2" class="${L.skew === "Balanced" ? "neu" : ""}" style="${L.skew === "Balanced" ? "" : "color:var(--accent)"}">${Math.round(L.up * 100)}/${Math.round(L.down * 100)} split</td></tr>
-      <tr><th class="l">Lows</th><th></th><th></th><th></th></tr>
-      ${L.rows.map(r => lvl(r, "lo")).join("")}</tbody></table>`;
-
-  const simple = (headers, rows, boldRows) => `<div class="wrap"><table><thead><tr>${headers.map((h, i) => `<th class="${i ? "" : "l"}">${h}</th>`).join("")}</tr></thead><tbody>${
-    rows.map((r, k) => `<tr>${r.map((c, i) => `<td class="${i ? (i === r.length - 1 ? "neu" : "") : "l"}" style="${(boldRows || []).includes(k) ? "font-weight:700" : ""}">${isNum(c) ? f2(c).replace(/\.00$/, "") : esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
-
-  host.innerHTML = `
-    <section><h2>ES forecast <small>ES ${f2(es.close)} · ${esc(es.regime)}</small></h2>
-      <div class="es-tiles">
-        <div class="tile"><div class="k">Potential range</div><div class="v">${R.typical}<span class="es-word">pts · ${esc(R.word)}</span></div><div class="s">${R.quiet} quiet — ${R.busy} busy</div>${es.event ? `<div class="s" style="color:var(--accent);font-weight:600">${esc(es.event.label)}${R.typicalBase ? ` · ${R.typicalBase} without it` : ""}</div>` : ""}</div>
-        <div class="tile"><div class="k">Day type</div><div class="v" style="font-size:22px">${esc(es.dayType)}<span class="es-word">${esc(es.dayWord)}</span></div><div class="s">${Math.round((1 - es.trendRate) * 100)}% range · ${Math.round(es.trendRate * 100)}% trend</div></div>
-        <div class="tile"><div class="k">Trend days · ${esc(es.regime)}</div><div class="v">${Math.round(es.trendRate * 100)}%</div><div class="s">all regimes ${Math.round(es.trendRateAll * 100)}%</div></div>
-        <div class="tile"><div class="k">Anchor · prior close</div><div class="v">${f2(L.anchor)}</div><div class="s">last session ran ${f2(R.lastRange)} pts</div></div>
-      </div></section>
-    <section><h2>Key levels <small>${esc(L.trendState)} · ${esc(L.skew)}</small></h2>
-      <div class="es-levels"><div>${svg}</div><div>${ladder}
-        <p class="es-note">${L.usingState ? `The range is split ${Math.round(L.up * 100)}/${Math.round(L.down * 100)} using the ${L.stateCount.toLocaleString()} past sessions in the same trend state (all sessions: ${Math.round(L.upAll * 100)}/${100 - Math.round(L.upAll * 100)}).` : "Too few past sessions in this trend state, so the all-sessions split is used."}
-        ES trades above the prior close in ${Math.round(L.touchAbove * 100)}% of sessions and below it in ${Math.round(L.touchBelow * 100)}%, so both sides are usually touched; the question is how far. Typical miss ±${Math.round(es.miss * 100)}% around the typical figure.</p></div></div></section>
-    <section><h2>Session forecast</h2>${simple(["Measure", "Model", "Regime", "Chance", "Note"], es.forecast, [1])}</section>
-    <section><h2>Market environment</h2>${simple(["Measure", "Value", "Context", "Note"], es.environment, [0, 2, 5])}
-      <p class="es-note">${esc(es.footnote)}</p></section>`;
-}
-
 // ================= X / REDDIT =================
 // Bullish % = green, stronger the higher it is. Bearish % = red, likewise.
 // Any other % / change column = green when positive, red when negative,
@@ -1389,7 +1329,7 @@ function stExpected(kind){
   return "";
 }
 function pageStamp(tab){
-  const d = DATA || {}, m = d.market || {}, es = d.esForecast || {}, fp = d.frontPage || {};
+  const d = DATA || {}, m = d.market || {}, fp = d.frontPage || {};
   let upd = "", data = "", kind = "day";
   if (tab === "front"){ upd = fp.startedText; }
   else if (tab === "mm"){
@@ -1400,7 +1340,6 @@ function pageStamp(tab){
   }
   else if (tab === "market" || tab === "sectors"){ upd = updText(m.updatedText); data = String(m.status || "").replace(/^Data as of:\s*/i, ""); }
   else if (tab === "earnings"){ upd = d.earningsUpdated; }
-  else if (tab === "esvol"){ upd = es.updatedText; data = es.asOf || es.asOfText; }
 
   const u = stParse(upd), dt = stParse(data);
   let html = "Updated: " + (u ? `<b>${stDay(u.iso)}${u.time ? ", " + u.time + " GST" : ""}</b>` : "<b>unknown</b>");
@@ -1413,7 +1352,7 @@ function pageStamp(tab){
 }
 
 // ================= TABS =================
-const TAB_WHAT = {front: "front", mm: "mm", market: "market", sectors: "market", esvol: "es", earnings: "earnings"};
+const TAB_WHAT = {front: "front", mm: "mm", market: "market", sectors: "market", earnings: "earnings"};
 function showTab(t){
   if (!$("tab-" + t)) t = "front";
   document.querySelectorAll("nav button").forEach(x => x.classList.toggle("active", x.dataset.tab === t));
@@ -1483,7 +1422,7 @@ async function startRefresh(what, label){
   }
 }
 $("btnRefresh").onclick = () => {
-  const t = currentTab(), names = {front: "Front Page", mm: "MM", market: "Market", sectors: "Sectors & Industries", esvol: "ES Forecast", earnings: "Earnings"};
+  const t = currentTab(), names = {front: "Front Page", mm: "MM", market: "Market", sectors: "Sectors & Industries", earnings: "Earnings"};
   startRefresh(TAB_WHAT[t], names[t]);
 };
 
@@ -1542,7 +1481,6 @@ fetch("data.json?v=" + Date.now(), {cache: "no-store"})
     try { renderFront(d); renderCalendar(); } catch (e) { $("tab-front").innerHTML = `<div class="empty">Front Page could not be drawn: ${esc(e.message)}</div>`; }
     try { if (d.market) setNameWidth(d.market); } catch (e) {}
     try { renderSectors(d.market); } catch (e) { $("tab-sectors").innerHTML = `<div class="empty">Sectors could not be drawn: ${esc(e.message)}</div>`; }
-    try { renderES(d.esForecast); } catch (e) { $("tab-esvol").innerHTML = `<div class="empty">ES Forecast could not be drawn: ${esc(e.message)}</div>`; }
     try { renderMarket(d.market); } catch (e) { $("tab-market").innerHTML = `<div class="empty">Market section could not be drawn: ${esc(e.message)}</div>`; }
     try { renderPlainTabs(d); } catch (e) { console.error(e); }
     try { renderEarnings(d); } catch (e) { $("tab-earnings").innerHTML = `<div class="empty">Earnings could not be drawn: ${esc(e.message)}</div>`; }
