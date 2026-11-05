@@ -1010,7 +1010,7 @@ function renderEarnings(d){
   // the calendar's week (Mon..Sun); falls back to the current week when the calendar is empty
   const first = cal.map(r => r.date).filter(Boolean).sort()[0] || todayUAE();
   const week = isoMonday(first);
-  const keep = EARN ? {day: EARN.day, sess: EARN.sess} : {day: "week", sess: "All"};
+  const keep = EARN ? {day: EARN.day, sess: EARN.sess, list: EARN.list} : {day: "week", sess: "All", list: "this"};
   EARN = Object.assign({cal, short, week, picked: new Set(short.map(r => r.ticker)), updated: d.earningsUpdated || ""}, keep);
   drawEarnings();
 }
@@ -1043,12 +1043,22 @@ function drawEarnings(){
   const head = `<thead><tr><th class="l">Day</th><th class="l">Session</th><th class="l">Ticker</th>${METRIC_HEAD}<th></th></tr></thead>`;
   const shortHead = `<thead><tr><th class="l">Day</th><th class="l">Session</th><th class="l">Ticker</th>${METRIC_HEAD}${REACT_HEAD}<th></th></tr></thead>`;
 
-  // ---- shortlist: this week's names only ----
-  const short = E.short.filter(inWeek).sort((a, b) => bySchedule(a, b) || a.ticker.localeCompare(b.ticker));
+  // ---- shortlist: last week, this week, or the whole earnings season ----
+  // A season is the calendar quarter it reports in (Q3 results: from 1 Oct).
+  // Names with no report date yet only appear under All.
+  const lastWeek = isoAdd(E.week, -7);
+  const seasonStart = today.slice(0, 5) + String(Math.floor((+today.slice(5, 7) - 1) / 3) * 3 + 1).padStart(2, "0") + "-01";
+  const LISTS = {
+    last: {label: "Last Week", test: r => r.date >= lastWeek && r.date < E.week, count: "last week", none: "No shortlisted names reported last week."},
+    this: {label: "This Week", test: inWeek, count: "this week", none: "No shortlisted names report this week. Add names from the calendar below with +."},
+    all:  {label: "All", test: r => !r.date || r.date >= seasonStart, count: "this season", none: "No shortlisted names this season. Add names from the calendar below with +."}
+  };
+  const list = LISTS[E.list] || LISTS.this;
+  const short = E.short.filter(list.test).sort((a, b) => bySchedule(a, b) || a.ticker.localeCompare(b.ticker));
   const shortHtml = short.length ? `<div class="wrap"><table class="ern">${shortHead}<tbody>${
     short.map(r => `<tr style="${r.date === today ? "background:rgba(224,168,75,.10)" : ""}">${dayCell(r)}${tkCell(r)}${metricCells(r)}${reactCells(r)}
       <td><button class="ebtn rm" data-op="remove" data-t="${esc(r.ticker)}" title="Remove from shortlist">✕</button></td></tr>`).join("")
-  }</tbody></table></div>` : '<div class="empty" style="padding:20px">No shortlisted names report this week. Add names from the calendar below with +.</div>';
+  }</tbody></table></div>` : `<div class="empty" style="padding:20px">${esc(list.none)}</div>`;
 
   // ---- filters: day of the week (or the whole week), then session ----
   const days = [0, 1, 2, 3, 4].map(i => isoAdd(E.week, i));
@@ -1061,6 +1071,7 @@ function drawEarnings(){
   const dayChips = chip("day", "week", "Week", E.day === "week")
     + days.filter(day => count(day, "All")).map(day => chip("day", day, `${shortDay(day).split(" ")[0]} ${+day.slice(8)}`, E.day === day)).join("");
   const sessChips = sessions.map(s => chip("sess", s, s, E.sess === s)).join("");
+  const listChips = Object.keys(LISTS).map(k => chip("list", k, LISTS[k].label, list === LISTS[k])).join("");
 
   // ---- main table: every $1bn+ name, by day, session, then largest first ----
   const rows = E.cal.filter(r => okDay(r, E.day) && okSess(r, E.sess))
@@ -1072,7 +1083,8 @@ function drawEarnings(){
         <td><button class="ebtn ${on ? "on" : "add"}" data-op="${on ? "remove" : "add"}" data-t="${esc(r.ticker)}" title="${on ? "On your shortlist (click to remove)" : "Add to shortlist"}">${on ? "✓" : "+"}</button></td></tr>`;
     }).join("")}</tbody></table></div>` : '<div class="empty" style="padding:20px">No names match these filters.</div>';
 
-  host.innerHTML = `<section><h2>Your shortlist <small>${short.length} this week · figures once reported, estimates until then</small></h2>${shortHtml}</section>
+  host.innerHTML = `<section><h2>Your shortlist <small>${short.length} ${list.count} · figures once reported, estimates until then</small></h2>
+      <div class="toolbar">${listChips}</div>${shortHtml}</section>
     <section><h2>Earnings calendar <small>week of ${esc(dayLabel(E.week).replace(/^\w+ /, ""))} · $1bn+ market cap</small></h2>
       <div class="toolbar">${dayChips}</div><div class="toolbar">${sessChips}</div>${calHtml}
       <div class="note">BMO = before the open, AMC = after the close, TBD = time not confirmed yet.</div></section>`;
