@@ -339,6 +339,9 @@ const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;
 const sign = v => v > 0 ? "+" : "";
 const isNum = v => typeof v === "number" && isFinite(v);
 const pct = v => { if (!isNum(v)) return "—"; const t = (v * 100).toFixed(1); return (t === "-0.0" ? "0.0" : sign(v) + t) + "%"; };
+// Distance from the 52-week high: green within 5% of it, red further away.
+// Judged on the rounded figure, so a displayed -5.0% is always green.
+const offHigh = v => isNum(v) ? `<span class="${Math.round(v * 1000) >= -50 ? "up" : "dn"}">${pct(v)}</span>` : "—";
 const bps = v => isNum(v) ? sign(v) + Math.round(v) + " bp" : "—";
 function heat(v, scale){
   if (!isNum(v) || !scale) return "";
@@ -507,8 +510,8 @@ function perfSection(host, uid, title, tables, note, noGroup, withHoldings){
       {key:"rng", label:"52W range", sort: r => isNum(r.hi) && r.hi !== r.lo ? (r.last - r.lo) / (r.hi - r.lo) : null,
         render: r => isNum(r.hi) && isNum(r.lo) && r.hi !== r.lo
           ? `<span class="rng" title="Low ${r.lo} · High ${r.hi}"><i style="left:${Math.max(0, Math.min(97, (r.last - r.lo) / (r.hi - r.lo) * 100))}%"></i></span>` : "—"},
-      {key:"off", label:"Off high", sort: r => r.yield || !isNum(r.hi) ? null : r.last / r.hi - 1,
-        render: r => r.yield || !isNum(r.hi) ? "—" : pct(r.last / r.hi - 1)},
+      {key:"off", label:"Off 52W High", sort: r => r.yield || !isNum(r.hi) ? null : r.last / r.hi - 1,
+        render: r => r.yield || !isNum(r.hi) ? "—" : offHigh(r.last / r.hi - 1)},
       {key:"group", label:"Group", cls:"l"}
     ]);
   // a table whose rows all share one group (Sectors) gets no Group column
@@ -566,7 +569,7 @@ function holdingRows(h, st, cols){
     if (PCT_SCALE[c.key] !== undefined) return `<td style="${heat(r[c.key], PCT_SCALE[c.key] * 2)}">${pct(r[c.key])}</td>`;
     if (c.key === "rng") return `<td>${isNum(r.hi) && isNum(r.lo) && r.hi !== r.lo
       ? `<span class="rng"><i style="left:${Math.max(0, Math.min(97, (r.last - r.lo) / (r.hi - r.lo) * 100))}%"></i></span>` : "—"}</td>`;
-    if (c.key === "off") return `<td>${isNum(r.hi) && isNum(r.last) ? pct(r.last / r.hi - 1) : "—"}</td>`;
+    if (c.key === "off") return `<td>${isNum(r.hi) && isNum(r.last) ? offHigh(r.last / r.hi - 1) : "—"}</td>`;
     if (c.key === "group") return `<td class="l hw" title="Weight in the ETF">${isNum(r.weight) ? r.weight.toFixed(1) + "%" : ""}</td>`;
     return "<td></td>";
   };
