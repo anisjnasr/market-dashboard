@@ -193,6 +193,8 @@ tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.04)}
 .ec-dot{display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle}
 .ec-dot.hi{background:rgb(var(--dn))} .ec-dot.md{background:#f0803c}
 .ec-ttl{color:#fff} .ec-ttl.fed{color:#7aa6e8;font-weight:600} .ec-ttl.politics{color:#b393e6;font-weight:600}
+.ec-row.lockup{background:rgba(224,168,75,.16);border-left:3px solid var(--accent);padding-left:6px;margin-left:-9px}
+.ec-ttl.lockup{color:var(--accent);font-weight:700}
 .ec-txt{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .ec-fp{flex:none;font-size:11.5px;color:#b5b7bd;white-space:nowrap;text-align:right}
 .ec-tabs{display:flex;gap:6px;margin:2px 0 6px}
@@ -709,7 +711,8 @@ const GST = {timeZone: "Asia/Dubai"};
 const ecTitle = t => String(t || "").replace(/\bm\/m\b/gi, "MoM").replace(/\by\/y\b/gi, "YoY").replace(/\bq\/q\b/gi, "QoQ");
 // Fed = the FOMC itself and Fed officials speaking; regional Fed surveys
 // (Philly Fed, Empire, Richmond...) are ordinary data releases.
-const ecKind = t => {
+const ecKind = (t, kind) => {
+  if (kind === "lockup") return "lockup";
   t = String(t || "");
   if (/\b(philly|philadelphia|empire|richmond|kansas city|dallas|chicago|ny|new york)\b.*\bfed\b|\bfed\b.*\b(index|survey|manufacturing|services)\b/i.test(t)) return "data";
   if (/\bFOMC\b|federal funds|\bfed chair|\bfed (governor|vice chair|member)|\bfed\b.*\bspeaks\b|\bpowell\b|\bwarsh\b/i.test(t)) return "fed";
@@ -727,9 +730,9 @@ function renderCalendar(){
     const row = e => {
       const past = e.t.getTime() < now - 30 * 60000;
       const fp = [e.forecast && `F ${esc(e.forecast)}`, e.previous && `P ${esc(e.previous)}`].filter(Boolean).join(" · ");
-      return `<div class="ec-row${past ? " past" : ""}"><span class="t">${e.t.toLocaleTimeString("en-GB", Object.assign({hour: "2-digit", minute: "2-digit"}, GST))}</span>
+      return `<div class="ec-row${past ? " past" : ""}${e.kind === "lockup" ? " lockup" : ""}"><span class="t">${e.t.toLocaleTimeString("en-GB", Object.assign({hour: "2-digit", minute: "2-digit"}, GST))}</span>
         <span class="ec-dot ${e.impact === "High" ? "hi" : "md"}" title="${esc(e.impact)} impact"></span>
-        <span class="ec-txt"><span class="ec-ttl ${ecKind(e.title)}">${esc(ecTitle(e.title))}</span>${fp ? `<span class="ec-fp">${fp}</span>` : ""}</span></div>`;
+        <span class="ec-txt"><span class="ec-ttl ${ecKind(e.title, e.kind)}">${esc(ecTitle(e.title))}</span>${fp ? `<span class="ec-fp">${fp}</span>` : ""}</span></div>`;
     };
     // Today / Tomorrow / This Week (Monday to Sunday, UAE time)
     const shift = (iso, n) => { const x = new Date(iso + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
